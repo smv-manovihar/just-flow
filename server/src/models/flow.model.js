@@ -1,50 +1,33 @@
-const { Schema, model } = require('mongoose');
+import { Schema, model } from 'mongoose';
 
 const FlowSchema = new Schema(
 	{
 		userId: {
 			type: Schema.Types.ObjectId,
-			ref: 'User',
+			ref: 'Users',
 			required: true,
+			index: true,
 		},
-		title: {
+		title: { type: String, required: true },
+		description: { type: String },
+		type: {
 			type: String,
-			required: true,
-		},
-		description: {
-			type: String,
-		},
-		flowType: {
-			type: String,
-			required: true,
 			enum: ['serial', 'choice', 'parallel', 'loop'],
 			default: 'serial',
 		},
-		startNode: {
-			type: Schema.Types.ObjectId,
-			ref: 'Nodes',
-			required: true,
+		visibility: {
+			type: String,
+			enum: ['public', 'private', 'shared', 'paid'],
+			default: 'public',
 		},
-		nodes: [
-			{
-				type: Schema.Types.ObjectId,
-				ref: 'Nodes',
-			},
-		],
-		likes: {
-			type: Array(Schema.Types.ObjectId),
-			default: [],
-			ref: 'Users',
-		},
-		comments: {
-			type: Array(Schema.Types.ObjectId),
-			default: [],
-			ref: 'Comments',
-		},
+		startNode: { type: Schema.Types.ObjectId, ref: 'Nodes', required: true },
+		nodes: [{ type: Schema.Types.ObjectId, ref: 'Nodes' }],
+		sharedWith: [{ type: Schema.Types.ObjectId, ref: 'Users' }],
+		price: { type: Number, default: 0 },
 	},
 	{ timestamps: true },
 );
 
-const Flow = model('Flows', FlowSchema);
+const Flow = model('Flows', FlowSchema, 'Flows');
 
 export default Flow;

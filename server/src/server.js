@@ -2,6 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import { connectDB } from './database/db.js';
 import authRouter from './routes/auth.router.js';
+import flowRouter from './routes/flow.router.js';
 import { authenticateJWT } from './middlewares/auth.middleware.js';
 import { PORT } from './config/conf.js';
 
@@ -13,6 +14,8 @@ app.use(cookieParser());
 app.use(authenticateJWT);
 
 app.use('/api/auth', authRouter);
+
+app.use('/api/flow', flowRouter);
 
 app.get('/api/profile', (req, res) => {
 	res.json({ message: 'You are authenticated', user: req.user });

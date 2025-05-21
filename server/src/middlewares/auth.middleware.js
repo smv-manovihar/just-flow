@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
-import { isValidUser } from '../controllers/auth.controller.js';
 import { JWT_SECRET } from '../config/conf.js';
+import { getUserById } from '../controllers/auth.controller.js';
 
-export const authenticateJWT = (req, res, next) => {
+export const authenticateJWT = async (req, res, next) => {
 	if (req.path.startsWith('/api/auth')) {
 		return next();
 	}
@@ -15,11 +15,12 @@ export const authenticateJWT = (req, res, next) => {
 
 	try {
 		const decoded = jwt.verify(token, JWT_SECRET);
-		req.user = decoded;
-		if (isValidUser(req.user)) {
+		const user = await getUserById(decoded.id);
+		if (user) {
+			req.userId = user._id.toString();
 			next();
 		} else {
-			res.status(401).json({ message: 'Invalid token' });
+			res.status(401).json({ message: 'Invalid token or user not found' });
 		}
 	} catch (err) {
 		res.status(401).json({ message: 'Invalid token' });
