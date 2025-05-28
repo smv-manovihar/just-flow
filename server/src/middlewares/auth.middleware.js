@@ -18,6 +18,7 @@ export const authenticateJWT = async (req, res, next) => {
 		const user = await getUserById(decoded.id);
 		if (user) {
 			req.userId = user._id.toString();
+			req.user = user;
 			next();
 		} else {
 			res.status(401).json({ message: 'Invalid token or user not found' });

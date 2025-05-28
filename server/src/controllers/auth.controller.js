@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 import { hash, compare } from 'bcrypt';
 import { JWT_SECRET } from '../config/conf.js';
-import { getUserByUsernameOrEmail } from './user.controller.js';
+import { getUserByUsernameOrEmail } from '../utils/user.utils.js';
 
 export const loginUser = async (req, res) => {
 	const { email, password } = req.body;
@@ -32,11 +32,18 @@ export const loginUser = async (req, res) => {
 			sameSite: 'strict',
 		});
 
-		userData = await User.findById(user._id);
-
+		const userData = await User.findById(user._id);
 		res.json({
 			message: 'Login successful',
-			user: {},
+			user: {
+				id: user._id,
+				email: user.email,
+				username: user.username,
+				name: user.name,
+				bio: user.bio,
+				type: user.type,
+				planDetails: user.planDetails,
+			},
 		});
 	} catch (err) {
 		console.error('Login error:', err);

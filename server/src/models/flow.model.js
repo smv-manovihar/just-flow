@@ -9,10 +9,11 @@ const FlowSchema = new Schema(
 			index: true,
 		},
 		title: { type: String, required: true },
-		description: { type: String },
+		tags: [{ type: String }],
+		systemTags: [{ type: String }],
 		type: {
 			type: String,
-			enum: ['serial', 'choice', 'parallel', 'loop'],
+			enum: ['serial', 'routine', 'plan'],
 			default: 'serial',
 		},
 		visibility: {
@@ -20,10 +21,24 @@ const FlowSchema = new Schema(
 			enum: ['public', 'private', 'shared', 'paid'],
 			default: 'public',
 		},
-		startNode: { type: Schema.Types.ObjectId, ref: 'Nodes', required: true },
+		startNode: { type: Schema.Types.ObjectId, ref: 'Nodes', required: false },
 		nodes: [{ type: Schema.Types.ObjectId, ref: 'Nodes' }],
-		sharedWith: [{ type: Schema.Types.ObjectId, ref: 'Users' }],
+		sharedWith: [
+			{
+				userId: { type: Schema.Types.ObjectId, ref: 'Users' },
+				canEdit: { type: Boolean, default: false },
+			},
+		],
+		isSharedEditable: { type: Boolean, default: false },
+		paidUsers: [
+			{
+				userId: { type: Schema.Types.ObjectId, ref: 'Users' },
+				canEdit: { type: Boolean, default: false },
+			},
+		],
 		price: { type: Number, default: 0 },
+		isCommitted: { type: Boolean, default: false },
+		isDraft: { type: Boolean, default: false },
 	},
 	{ timestamps: true },
 );
