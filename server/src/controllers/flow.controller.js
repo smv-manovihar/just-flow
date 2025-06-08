@@ -42,74 +42,56 @@ export const createFlow = async (req, res) => {
 			{ session },
 		);
 
-		const stNode = await Node.create(
-			[
-				{
-					flowId: flow[0]._id,
-					title: startNode.title,
-					content: startNode?.content,
-					type: startNode?.type,
-					connections: [],
-					parentNodeId: null,
-					mediaUrl: startNode?.mediaUrl,
-					isStartNode: true,
-					isEndNode: true,
-				},
-			],
-			{ session },
-		);
+		// Map from temporary node IDs to MongoDB _ids
+		const tempIdToMongoId = {};
 
-		flow[0].startNode = stNode[0]._id;
-		flow[0].nodes.push(stNode[0]._id);
+		// Ensure startNode has an id
+		const startNodeWithId = { ...startNode, id: startNode.id || 'start' };
+		const allNodes = [startNodeWithId, ...nodes];
 
-		let q = [{ ...startNode, mongoId: stNode[0]._id }];
+		// Create all nodes with empty connections
+		for (const node of allNodes) {
+			const newNode = await Node.create(
+				[
+					{
+						flowId: flow[0]._id,
+						userId: userId,
+						title: node.title,
+						content: node?.content,
+						tags: node?.tags,
+						type: node.type || 'text',
+						connections: [],
+						mediaUrl: node.mediaUrl,
+						isStartNode: node.id === startNodeWithId.id,
+						isEndNode: true,
+					},
+				],
+				{ session },
+			);
+			tempIdToMongoId[node.id] = newNode[0]._id;
+			flow[0].nodes.push(newNode[0]._id);
+		}
 
-		while (q.length > 0) {
-			const currNode = q.shift();
-			for (let i = 0; i < currNode.connections.length; i++) {
-				const nodeId = currNode.connections[i].nodeId;
-				const node = nodes.find((node) => node.id === nodeId);
-				if (!node) {
-					await session.abortTransaction();
-					session.endSession();
-					return res
-						.status(400)
-						.json({ message: 'Nodes are not connected properly.' });
-				}
-				const newNode = await Node.create(
-					[
-						{
-							flowId: flow[0]._id,
-							title: node.title,
-							content: node?.content,
-							tags: node?.tags,
-							type: node.type,
-							connections: [],
-							parentNodeId: currNode.mongoId,
-							mediaUrl: node.mediaUrl,
-							isStartNode: false,
-							isEndNode: true,
-						},
-					],
-					{ session },
-				);
+		// Set startNode
+		flow[0].startNode = tempIdToMongoId[startNodeWithId.id];
 
-				const parentNode = await Node.findById(currNode.mongoId).session(
-					session,
-				);
-
-				parentNode.connections.push({
-					type: currNode.connections[i].type,
-					nodeId: newNode[0]._id,
-				});
-
-				parentNode.isEndNode = false;
-
-				await parentNode.save({ session });
-				flow[0].nodes.push(newNode[0]._id);
-
-				q.push({ ...node, mongoId: newNode[0]._id });
+		// Update connections
+		for (const node of allNodes) {
+			const mongoId = tempIdToMongoId[node.id];
+			const connections = (node.connections || []).map((conn) => ({
+				nodeId: tempIdToMongoId[conn.nodeId],
+				type: conn.type,
+			}));
+			if (connections.some((conn) => !conn.nodeId)) {
+				await session.abortTransaction();
+				session.endSession();
+				return res.status(400).json({ message: 'Invalid node connections' });
 			}
+			await Node.updateOne(
+				{ _id: mongoId },
+				{ connections, isEndNode: connections.length === 0 },
+				{ session },
+			);
 		}
 
 		await flow[0].save({ session });
@@ -140,83 +122,6 @@ export const getFlowWithNodes = async (req, res) => {
 		res.json({ message: 'Flow found', flow, nodes });
 	} catch (err) {
 		res.status(500).json({ message: 'Server error' });
-	}
-};
-
-export const addNodeToFlow = async (req, res) => {
-	const { flowId, prevNodeId, node, type } = req.body;
-	const userId = req.userId;
-	let session = null;
-
-	try {
-		const flow = await Flow.findById(flowId);
-		if (!flow) {
-			return res.status(404).json({ message: 'Flow not found' });
-		}
-		if (flow.isCommitted) {
-			return res
-				.status(406)
-				.json({ message: 'Flow is committed! Cannot add nodes to it' });
-		}
-
-		const prevNode = await Node.findById(prevNodeId);
-		if (!prevNode) {
-			return res.status(404).json({ message: 'Node not found' });
-		}
-
-		session = await mongoose.startSession();
-		session.startTransaction();
-
-		const nodeToAdd = await Node.create(
-			[
-				{
-					flowId,
-					title: node.title,
-					content: node.content,
-					tags: node.tags,
-					type: node.type,
-					connections: [],
-					mediaUrl: node.mediaUrl,
-					isStartNode: false,
-					isEndNode: true,
-				},
-			],
-			{ session },
-		);
-		const newNodeId = nodeToAdd[0]._id;
-
-		const updatePrevResult = await Node.updateOne(
-			{ _id: prevNodeId },
-			{
-				$push: {
-					connections: {
-						type,
-						nodeId: newNodeId,
-					},
-				},
-			},
-			{ session },
-		);
-		if (updatePrevResult.nModified === 0) {
-			throw new Error('Failed to update previous node');
-		}
-
-		const updatedFlow = await Flow.findByIdAndUpdate(
-			flowId,
-			{ $push: { nodes: newNodeId } },
-			{ new: true, session },
-		);
-
-		await session.commitTransaction();
-		session.endSession();
-
-		res.json({ message: 'Node added successfully', flow: updatedFlow });
-	} catch (err) {
-		if (session) {
-			await session.abortTransaction();
-			session.endSession();
-		}
-		res.status(500).json({ message: 'Server error', error: err.message });
 	}
 };
 
@@ -269,78 +174,145 @@ export const getFlow = async (req, res) => {
 	}
 };
 
-async function getSubtreeNodeIds(rootNodeId, flowId, session) {
-  let subtreeIds = [rootNodeId];
-  let queue = [rootNodeId];
-  while (queue.length > 0) {
-    const currentId = queue.shift();
-    const children = await Node.find({ flowId, parentNodeId: currentId }, '_id').session(session);
-    const childIds = children.map(child => child._id);
-    queue.push(...childIds);
-    subtreeIds.push(...childIds);
-  }
-  return subtreeIds;
-}
+export const updateFlow = async (req, res) => {
+	const { flowId } = req.params;
+	const {
+		title,
+		tags,
+		type,
+		startNode,
+		nodes,
+		visibility,
+		sharedWith,
+		isSharedEditable,
+		price,
+		isCommitted,
+		isDraft,
+	} = req.body;
+	const userId = req.userId;
+	let session;
 
-export const deleteNode = async (req, res) => {
-  const { flowId, nodeId } = req.params;
-  let session;
+	try {
+		// Start a MongoDB transaction
+		session = await mongoose.startSession();
+		session.startTransaction();
 
-  try {
-    session = await mongoose.startSession();
-    session.startTransaction();
+		// Verify flow exists
+		const flow = await Flow.findById(flowId).session(session);
+		if (!flow) {
+			await session.abortTransaction();
+			session.endSession();
+			return res.status(404).json({ message: 'Flow not found' });
+		}
 
-    const flow = await Flow.findById(flowId).session(session);
-    if (!flow) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: 'Flow not found' });
-    }
+		// Track temporary IDs to MongoDB IDs and existing nodes
+		const tempIdToMongoId = {};
+		const existingNodeIds = new Set();
+		const nodesToDelete = new Set(flow.nodes.map((id) => id.toString()));
 
-    const node = await Node.findById(nodeId).session(session);
-    if (!node) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(404).json({ message: 'Node not found' });
-    }
+		// Process nodes: create new ones, update existing ones
+		for (const node of nodes) {
+			if (node.id && mongoose.Types.ObjectId.isValid(node.id)) {
+				// Update existing node
+				const nodeId = node.id;
+				existingNodeIds.add(nodeId);
+				nodesToDelete.delete(nodeId);
 
-    if (flow.startNode && flow.startNode.toString() === nodeId) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: 'Cannot delete the start node' });
-    }
+				const existingNode = await Node.findById(nodeId).session(session);
+				if (existingNode) {
+					existingNode.title = node.title;
+					existingNode.content = node.content;
+					existingNode.tags = node.tags;
+					existingNode.type = node.type;
+					existingNode.mediaUrl = node.mediaUrl;
+					existingNode.isStartNode = node.isStartNode;
+					existingNode.isEndNode = node.isEndNode;
+					await existingNode.save({ session });
+				}
+			} else {
+				// Create new node
+				const newNode = await Node.create(
+					[
+						{
+							flowId,
+							userId,
+							title: node.title,
+							content: node.content,
+							tags: node.tags,
+							type: node.type,
+							connections: [],
+							mediaUrl: node.mediaUrl,
+							isStartNode: node.isStartNode,
+							isEndNode: node.isEndNode,
+						},
+					],
+					{ session },
+				);
+				tempIdToMongoId[node.id] = newNode[0]._id;
+				existingNodeIds.add(newNode[0]._id.toString());
+			}
+		}
 
-    // Get all subtree node IDs (including the node itself)
-    const subtreeIds = await getSubtreeNodeIds(node._id, flowId, session);
+		// Delete nodes not in the request
+		for (const nodeId of nodesToDelete) {
+			await Node.deleteOne({ _id: nodeId }, { session });
+		}
 
-    // If the node has a parent, remove the connection from the parent to this node
-    if (node.parentNodeId) {
-      await Node.updateOne(
-        { _id: node.parentNodeId },
-        { $pull: { connections: { nodeId: node._id } } },
-        { session }
-      );
-    }
+		for (const node of nodes) {
+			const mongoId =
+				node.id && mongoose.Types.ObjectId.isValid(node.id)
+					? node.id
+					: tempIdToMongoId[node.id];
+			const connections = (node.connections || []).map((conn) => ({
+				nodeId:
+					conn.nodeId && mongoose.Types.ObjectId.isValid(conn.nodeId)
+						? conn.nodeId
+						: tempIdToMongoId[conn.nodeId],
+				type: conn.type,
+			}));
 
-    // Delete all subtree nodes
-    await Node.deleteMany({ _id: { $in: subtreeIds } }, { session });
+			if (connections.some((conn) => !conn.nodeId)) {
+				await session.abortTransaction();
+				session.endSession();
+				return res.status(400).json({ message: 'Invalid node connections' });
+			}
 
-    // Remove the subtree node IDs from the flow's nodes array
-    await Flow.updateOne(
-      { _id: flowId },
-      { $pull: { nodes: { $in: subtreeIds } } },
-      { session }
-    );
+			await Node.updateOne(
+				{ _id: mongoId },
+				{ connections, isEndNode: connections.length === 0 },
+				{ session },
+			);
+		}
 
-    await session.commitTransaction();
-    session.endSession();
+		flow.title = title;
+		flow.tags = tags;
+		flow.type = type;
+		flow.visibility = visibility;
+		flow.sharedWith = sharedWith;
+		flow.isSharedEditable = isSharedEditable;
+		flow.price = price;
+		flow.isCommitted = isCommitted;
+		flow.isDraft = isDraft;
+		flow.nodes = Array.from(existingNodeIds).map((id) =>
+			mongoose.Types.ObjectId(id),
+		);
+		flow.startNode =
+			startNode && mongoose.Types.ObjectId.isValid(startNode)
+				? startNode
+				: tempIdToMongoId[startNode];
 
-    res.json({ message: 'Node and its subtree deleted successfully' });
-  } catch (err) {
-    if (session) {
-      await session.abortTransaction();
-      session.endSession();
-    }
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
+		await flow.save({ session });
+
+		// Commit transaction
+		await session.commitTransaction();
+		session.endSession();
+
+		res.status(200).json({ message: 'Flow updated successfully', flow });
+	} catch (err) {
+		if (session) {
+			await session.abortTransaction();
+			session.endSession();
+		}
+		res.status(500).json({ message: 'Server error', error: err.message });
+	}
 };

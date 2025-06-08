@@ -179,10 +179,10 @@ export const deleteComment = async (req, res) => {
 				.json({ message: 'Unauthorized to delete comment' });
 		}
 
-		const replies = await Comment.find({ replyTo: commentId }).session(session);
-		for (const reply of replies) {
-			await reply.remove().session(session);
-		}
+		const deletedReplies = await Comment.deleteMany({
+			replyTo: commentId,
+		}).session(session);
+		
 		await comment.remove().session(session);
 
 		await session.commitTransaction();

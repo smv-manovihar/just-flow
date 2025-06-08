@@ -1,12 +1,15 @@
 import express from 'express';
 import {
 	createFlow,
-	addNodeToFlow,
 	getFlow,
 	deleteFlow,
 	getFlowWithNodes,
-	deleteNode,
 } from '../controllers/flow.controller.js';
+import {
+	addNodeToFlow,
+	deleteNode,
+	updateNodeConnections,
+} from '../controllers/node.controller.js';
 import {
 	editFlowValidation,
 	viewFlowValidation,
@@ -19,6 +22,7 @@ router.post('/addNode', editFlowValidation, addNodeToFlow);
 router.get('/head/:flowId', viewFlowValidation, getFlow);
 router.get('/:flowId', viewFlowValidation, getFlowWithNodes);
 router.delete('/:flowId', editFlowValidation, deleteFlow);
-router.delete('/:flowId/node/:nodeId', editFlowValidation, deleteNode);
+router.delete('/:flowId/:nodeId', editFlowValidation, deleteNode);
+router.post('/:flowId/updateNodes', editFlowValidation, updateNodeConnections);
 
 export default router;

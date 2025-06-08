@@ -13,6 +13,7 @@ const CommentSchema = new Schema(
 		comment: { type: String },
 		mediaUrl: { type: String },
 		likes: [{ type: Schema.Types.ObjectId, ref: 'Users' }],
+		isEdited: { type: Boolean, default: false },
 	},
 	{ timestamps: true },
 );
