@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
+import RevokedToken from '../models/revokedToken.model.js';
 import { hash, compare } from 'bcrypt';
 import { JWT_SECRET } from '../config/conf.js';
 import { getUserByUsernameOrEmail } from '../utils/user.utils.js';
@@ -29,7 +30,8 @@ export const loginUser = async (req, res) => {
 		res.cookie('token', token, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'strict',
+			sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+			maxAge: 24 * 60 * 60 * 1000, // 24 hours
 		});
 
 		const userData = await User.findById(user._id);
@@ -113,7 +115,8 @@ export const registerUser = async (req, res) => {
 		res.cookie('token', token, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'strict',
+			sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+			maxAge: 24 * 60 * 60 * 1000, // 24 hours
 		});
 
 		res.status(201).json({
@@ -134,12 +137,36 @@ export const registerUser = async (req, res) => {
 	}
 };
 
-export const getUserById = async (id) => {
+export const verifyUser = async (req, res) => {
 	try {
-		const user = await User.findById(id);
-		return user;
+		res.json({
+			message: 'User verified',
+			user: {
+				id: req.user._id,
+				email: req.user.email,
+				username: req.user.username,
+				name: req.user.name,
+				bio: req.user.bio,
+				type: req.user.type,
+				planDetails: req.user.planDetails,
+			},
+		});
 	} catch (err) {
-		console.error('User validation error:', err);
-		return null;
+		console.error('Verify user error:', err);
+		res.status(500).json({ message: 'Server error' });
+	}
+};
+
+export const logoutUser = async (req, res) => {
+	try {
+		const token = req.cookies.token;
+		if (token) {
+			await RevokedToken.create({ token });
+		}
+		res.clearCookie('token');
+		res.json({ message: 'Logout successful' });
+	} catch (err) {
+		console.error('Logout error:', err);
+		res.status(500).json({ message: 'Server error' });
 	}
 };

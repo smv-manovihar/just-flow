@@ -1,9 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/conf.js';
-import { getUserById } from '../controllers/auth.controller.js';
-
+import { getUserById } from '../utils/user.utils.js';
+import RevokedToken from '../models/revokedToken.model.js';
 export const authenticateJWT = async (req, res, next) => {
-	if (req.path.startsWith('/api/auth')) {
+	if (
+		req.path.startsWith('/api/auth/login') ||
+		req.path.startsWith('/api/auth/register')
+	) {
 		return next();
 	}
 
@@ -14,6 +17,10 @@ export const authenticateJWT = async (req, res, next) => {
 	}
 
 	try {
+		const revoked = await RevokedToken.findOne({ token });
+		if (revoked) {
+			return res.status(401).json({ message: 'Token has been revoked' });
+		}
 		const decoded = jwt.verify(token, JWT_SECRET);
 		const user = await getUserById(decoded.id);
 		if (user) {

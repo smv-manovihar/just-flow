@@ -19,7 +19,7 @@ const router = express.Router();
 
 router.post('/create', createFlow);
 router.post('/addNode', editFlowValidation, addNodeToFlow);
-router.get('/head/:flowId', viewFlowValidation, getFlow);
+router.get('/:flowId/head', viewFlowValidation, getFlow);
 router.get('/:flowId', viewFlowValidation, getFlowWithNodes);
 router.delete('/:flowId', editFlowValidation, deleteFlow);
 router.delete('/:flowId/:nodeId', editFlowValidation, deleteNode);
