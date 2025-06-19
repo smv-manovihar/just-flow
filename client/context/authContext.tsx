@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import {
   verifyUser,
   login as loginApi,
@@ -14,7 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean>>;
   isLoading: boolean;
-  login: (data: LoginData) => Promise<User | void>;
+  login: (data: LoginData) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -24,8 +30,12 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   setIsAuthenticated: () => {},
   isLoading: true,
-  login: async () => {},
-  logout: async () => {},
+  login: async () => {
+    throw new Error("AuthContext not initialized");
+  },
+  logout: async () => {
+    throw new Error("AuthContext not initialized");
+  },
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -36,45 +46,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        console.log("Starting user verification...");
         setIsLoading(true);
-        const userData = await verifyUser();
-        console.log("verifyUser response:", userData);
-        
-        if (userData?.user) {
-          setUser(userData.user);
+        const response = await verifyUser();
+
+        if (response.success && response.data) {
+          setUser(response.data);
           setIsAuthenticated(true);
-          console.log("User authenticated successfully");
         } else {
           setUser(null);
           setIsAuthenticated(false);
-          console.log("No user found");
         }
       } catch (error) {
         console.error("Error verifying user:", error);
         setUser(null);
         setIsAuthenticated(false);
       } finally {
-        console.log("User verification complete");
         setIsLoading(false);
       }
     };
-    
+
     checkUser();
   }, []);
 
-  const login = async (data: LoginData): Promise<User | void> => {
+  const login = async (data: LoginData): Promise<User> => {
     try {
       setIsLoading(true);
-      const response = await loginApi(data.email, data.password);
-      
-      if (response?.user) {
-        setUser(response.user);
+      const response = await loginApi(data);
+
+      if (response.success && response.data) {
+        setUser(response.data);
         setIsAuthenticated(true);
-        console.log("Login successful:", response.user);
-        return response.user;
+        return response.data;
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error(response.message || "Login failed");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -89,15 +93,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async (): Promise<void> => {
     try {
       setIsLoading(true);
-      await logoutApi();
+      const response = await logoutApi();
+
+      if (!response.success) {
+        throw new Error(response.message || "Logout failed");
+      }
+      
       setUser(null);
       setIsAuthenticated(false);
-      console.log("Logout successful");
     } catch (error) {
       console.error("Logout error:", error);
       // Still clear local state even if API call fails
       setUser(null);
       setIsAuthenticated(false);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -113,11 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {

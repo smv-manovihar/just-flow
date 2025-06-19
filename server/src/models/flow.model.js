@@ -26,16 +26,29 @@ const FlowSchema = new Schema(
 		sharedWith: [
 			{
 				userId: { type: Schema.Types.ObjectId, ref: 'Users' },
-				canEdit: { type: Boolean, default: false },
+				role: {
+					type: String,
+					enum: ['owner', 'editor', 'viewer'],
+				},
 			},
 		],
 		isSharedEditable: { type: Boolean, default: false },
 		paidUsers: [
 			{
 				userId: { type: Schema.Types.ObjectId, ref: 'Users' },
-				canEdit: { type: Boolean, default: false },
+				canReFlow: { type: Boolean, default: false },
 			},
 		],
+		reFlowedFrom: [
+			{
+				userId: { type: Schema.Types.ObjectId, ref: 'Users' },
+				flowId: { type: Schema.Types.ObjectId, ref: 'Flows' },
+			},
+		],
+		origin: {
+			userId: { type: Schema.Types.ObjectId, ref: 'Users' },
+			flowId: { type: Schema.Types.ObjectId, ref: 'Flows' },
+		},
 		price: { type: Number, default: 0 },
 		isCommitted: { type: Boolean, default: false },
 		isDraft: { type: Boolean, default: false },

@@ -1,49 +1,64 @@
-import { RegisterData } from "@/types/auth.type";
+import { LoginData, RegisterData, User } from "@/types/auth.type";
 import { api } from "@/config/api.config";
+import { handleApiError } from "@/lib/utils";
+import { AxiosError } from "axios";
+import { ApiResponse } from "@/types/api.type";
 
-export const login = async (email: string, password: string) => {
+export const login = async (data: LoginData): Promise<ApiResponse<User>> => {
   try {
-    const response = await api.post("/api/auth/login", { email, password }, { 
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-      }
+    const response = await api.post("/api/auth/login", data, { 
+      withCredentials: true
     });
-    return response.data;
-  } catch (error: any) {
-    if (error.response) {
-      throw new Error(error.response.data.message || 'Login failed');
-    }
-    throw new Error('Network error occurred');
+    return {
+      success: true,
+      message: response.data.message,
+      data: response.data.user,
+    };
+  } catch (error) {
+    return handleApiError(error as AxiosError);
   }
 };
 
-export const register = async (data: RegisterData) => {
-  const response = await api.post("/api/auth/register", {
-    email: data.email,
-    username: data.username,
-    password: data.password,
-    name: data.name,
-    bio: data?.bio,
-    type: data?.type,
-    planDetails: data?.planDetails
-  }, { withCredentials: true });
-  return response.data;
-};
-
-export const verifyUser = async () => {
+export const register = async (data: RegisterData): Promise<ApiResponse<User>> => {
   try {
-    const response = await api.get("/api/auth/me", { withCredentials: true });
-    return response.data;
-  } catch (error: any) {
-    console.error('Verify user error:', error);
-    if (error.response) {
-      throw new Error(error.response.data.message || 'Failed to verify user');
-    }
-    throw new Error('Network error occurred while verifying user');
+    const response = await api.post("/api/auth/register", data, { 
+      withCredentials: true
+    });
+    return {
+      success: true,
+      message: response.data.message,
+      data: response.data.user,
+    };
+  } catch (error) {
+    return handleApiError(error as AxiosError);
   }
 };
 
-export const logout = async () => {
-  await api.post("/api/auth/logout", {}, { withCredentials: true });
+export const verifyUser = async (): Promise<ApiResponse<User>> => {
+  try {
+    const response = await api.get("/api/auth/me", { 
+      withCredentials: true
+    });
+    return {
+      success: true,
+      message: response.data.message,
+      data: response.data.user,
+    };
+  } catch (error) {
+    return handleApiError(error as AxiosError);
+  }
+};
+
+export const logout = async (): Promise<ApiResponse<void>> => {
+  try {
+    const response = await api.post("/api/auth/logout", {}, { 
+      withCredentials: true
+    });
+    return {
+      success: true,
+      message: response.data.message,
+    };
+  } catch (error) {
+    return handleApiError(error as AxiosError);
+  }
 };

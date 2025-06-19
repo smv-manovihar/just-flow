@@ -34,7 +34,6 @@ export const loginUser = async (req, res) => {
 			maxAge: 24 * 60 * 60 * 1000, // 24 hours
 		});
 
-		const userData = await User.findById(user._id);
 		res.json({
 			message: 'Login successful',
 			user: {

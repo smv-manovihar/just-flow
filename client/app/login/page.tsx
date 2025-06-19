@@ -17,18 +17,26 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     try {
       await login({ email, password });
       router.push("/profile");
-    } catch (err) {
-      setError("Invalid email or password");
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "An error occurred during login"
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -56,6 +64,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -69,13 +78,14 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 required
+                disabled={isLoading}
               />
             </div>
             {error && (
               <p className="text-sm text-destructive text-center">{error}</p>
             )}
-            <Button type="submit" className="w-full">
-              Sign In
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
         </CardContent>

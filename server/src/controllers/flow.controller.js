@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import Flow from '../models/flow.model.js';
 import Node from '../models/node.model.js';
+import Like from '../models/like.model.js';
+import Comment from '../models/comment.model.js';
 
 export const createFlow = async (req, res) => {
 	const {
@@ -163,12 +165,19 @@ export const getFlow = async (req, res) => {
 	const { flowId } = req.params;
 	try {
 		const flow = await Flow.findById(flowId);
+		const likes = await Like.find({ flowId });
+		const comments = await Comment.find({ flowId });
 		if (!flow) {
 			return res.status(404).json({ message: 'Flow not found' });
 		}
 		const startNode = await Node.findById(flow.startNode);
 		flow.startNode = startNode;
-		res.json({ message: 'Flow found', flow });
+		res.json({
+			message: 'Flow found',
+			flow,
+			numLikes: likes.length,
+			numComments: comments.length,
+		});
 	} catch (err) {
 		res.status(500).json({ message: 'Server error' });
 	}
