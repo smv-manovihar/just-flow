@@ -6,7 +6,6 @@ import { connectDB } from './database/db.js';
 import authRouter from './routes/auth.router.js';
 import flowRouter from './routes/flow.router.js';
 import userRouter from './routes/user.router.js';
-import activityRouter from './routes/activity.router.js';
 import { authenticateJWT } from './middlewares/auth.middleware.js';
 import { trackUserActivity } from './middlewares/activity.middleware.js';
 import { PORT } from './config/conf.js';
@@ -87,8 +86,6 @@ app.get('/api/health', async (req, res) => {
 // Protected endpoints with activity tracking
 app.use('/api/flows', authenticateJWT, trackUserActivity, flowRouter);
 app.use('/api/users', authenticateJWT, trackUserActivity, userRouter);
-app.use('/api/activity', authenticateJWT, trackUserActivity, activityRouter);
-
 // Error handling middleware
 app.use((err, req, res, next) => {
 	console.error('Error:', err);
