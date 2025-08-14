@@ -34,9 +34,9 @@ export const register = async (data: RegisterData): Promise<ApiResponse<User>> =
   }
 };
 
-export const verifyUser = async (): Promise<ApiResponse<User>> => {
+export const refreshToken = async (): Promise<ApiResponse<User>> => {
   try {
-    const response = await api.get("/api/auth/me", { 
+    const response = await api.post("/api/auth/token", {}, { 
       withCredentials: true
     });
     return {
@@ -48,6 +48,49 @@ export const verifyUser = async (): Promise<ApiResponse<User>> => {
     return handleApiError(error as AxiosError);
   }
 };
+
+export const verifyUser = async (): Promise<ApiResponse<User>> => {
+  try {
+    const response = await api.get("/api/auth/me", { 
+      withCredentials: true
+    });
+    return {
+      success: true,
+      message: response.data.message,
+      data: response.data.user,
+    };
+  } catch (error) {
+    return getNewToken(error as AxiosError);
+  }
+};
+
+export const getNewToken = async (error: AxiosError): Promise<ApiResponse<User>> => {
+  if (error.response?.status === 401) {
+    try {
+      const refreshResult = await refreshToken();
+      
+      if (refreshResult.success) {
+        const originalRequest = error.config;
+        if (originalRequest) {
+          const retryResponse = await api(originalRequest);
+          return {
+            success: true,
+            message: retryResponse.data.message,
+            data: retryResponse.data.user,
+          };
+        }
+      }
+      
+      return refreshResult;
+    } catch (refreshError) {
+      return handleApiError(refreshError as AxiosError);
+    }
+  }
+  
+  // For non-401 errors, use regular error handling
+  return handleApiError(error);
+};
+
 
 export const logout = async (): Promise<ApiResponse<void>> => {
   try {

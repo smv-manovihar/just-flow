@@ -8,7 +8,7 @@ const userSchema = new Schema(
 			lowercase: true,
 			trim: true,
 		},
-		password: { type: String, required: true },
+		password: { type: String },
 		username: {
 			type: String,
 			required: true,
@@ -23,6 +23,9 @@ const userSchema = new Schema(
 			enum: ['Free', 'Premium', 'Enterprise'],
 			default: 'Free',
 		},
+		provider: { type: String, required: true, default: 'local' },
+		providerId: { type: String, required: true, default: null },
+		avatar: { type: String, default: null },
 		planDetails: { type: Object, default: {} },
 		lastActivity: { type: Date, default: Date.now },
 		isActive: { type: Boolean, default: true },
