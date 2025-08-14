@@ -5,7 +5,7 @@ import Node from '../models/node.model.js';
 export const addNodeToFlow = async (req, res) => {
 	const { flowId, prevNodeId, node, type } = req.body;
 	const userId = req.userId;
-	let session = null;
+	let session;
 
 	try {
 		const flow = await Flow.findById(flowId);
@@ -23,6 +23,13 @@ export const addNodeToFlow = async (req, res) => {
 			return res.status(404).json({ message: 'Node not found' });
 		}
 
+		if (!['next', 'sibling', 'parent'].includes(type)) {
+			return res.status(400).json({
+				message:
+					'Invalid connection type only "next", "sibling", and "parent" are supported',
+			});
+		}
+
 		session = await mongoose.startSession();
 		session.startTransaction();
 
@@ -33,15 +40,12 @@ export const addNodeToFlow = async (req, res) => {
 					userId,
 					title: node.title,
 					content: node.content,
-					tags: node.tags,
+					tags: node.tags || [],
+					systemTags: node.systemTags || [],
 					type: node.type,
-					connections: [
-						{
-							type: 'parent',
-							nodeId: prevNodeId,
-						},
-					],
+					connections: [{ type: 'parent', nodeId: prevNodeId }],
 					mediaUrl: node.mediaUrl,
+
 					isStartNode: false,
 					isEndNode: true,
 				},
@@ -51,33 +55,25 @@ export const addNodeToFlow = async (req, res) => {
 
 		const newNodeId = nodeToAdd[0]._id;
 
-		const updatePrevResult = await Node.updateOne(
+		await Node.updateOne(
 			{ _id: prevNodeId },
 			{
-				$push: {
-					connections: {
-						type,
-						nodeId: newNodeId,
-					},
-				},
+				$push: { connections: { type, nodeId: newNodeId } },
 				isEndNode: false,
 			},
 			{ session },
 		);
-		if (updatePrevResult.modifiedCount === 0) {
-			throw new Error('Failed to update previous node');
-		}
 
-		const updatedFlow = await Flow.findByIdAndUpdate(
-			flowId,
+		await Flow.updateOne(
+			{ _id: flowId },
 			{ $push: { nodes: newNodeId } },
-			{ new: true, session },
+			{ session },
 		);
 
 		await session.commitTransaction();
 		session.endSession();
 
-		res.json({ message: 'Node added successfully', flow: updatedFlow });
+		res.json({ message: 'Node added successfully', node: nodeToAdd[0] });
 	} catch (err) {
 		if (session) {
 			await session.abortTransaction();
@@ -86,6 +82,7 @@ export const addNodeToFlow = async (req, res) => {
 		res.status(500).json({ message: 'Server error', error: err.message });
 	}
 };
+
 export const deleteNode = async (req, res) => {
 	const { flowId, nodeId } = req.params;
 	let session;
@@ -114,15 +111,10 @@ export const deleteNode = async (req, res) => {
 			return res.status(400).json({ message: 'Cannot delete the start node' });
 		}
 
-		// Get the list of children (nodes connected with type 'next')
-		const childrenIds = node.connections
-			.filter((conn) => conn.type === 'next')
-			.map((conn) => conn.nodeId);
-
-		// Remove all incoming connections to this node
+		// Remove all connections referencing this node
 		await Node.updateMany(
 			{ 'connections.nodeId': nodeId },
-			{ $pull: { connections: { nodeId: nodeId } } },
+			{ $pull: { connections: { nodeId } } },
 			{ session },
 		);
 
@@ -130,17 +122,19 @@ export const deleteNode = async (req, res) => {
 		await Node.deleteOne({ _id: nodeId }, { session });
 
 		// Remove the node from the flow's nodes array
-		flow.nodes = flow.nodes.filter((n) => n.toString() !== nodeId);
+		await Flow.updateOne(
+			{ _id: flowId },
+			{ $pull: { nodes: nodeId } },
+			{ session },
+		);
 
-		// Delete orphaned nodes starting from the children
-		await deleteOrphanedNodes(childrenIds, flow.startNode, session);
-
-		// Update flow's nodes array to include only existing nodes
-		const remainingNodes = await Node.find({ flowId })
-			.select('_id')
-			.session(session);
-		flow.nodes = remainingNodes.map((n) => n._id);
-		await flow.save({ session });
+		// Clean up orphaned nodes
+		const allNodes = await Node.find({ flowId }).session(session);
+		await deleteOrphanedNodes(
+			allNodes.map((n) => n._id),
+			flow.startNode,
+			session,
+		);
 
 		await session.commitTransaction();
 		session.endSession();
@@ -156,28 +150,28 @@ export const deleteNode = async (req, res) => {
 };
 
 async function deleteOrphanedNodes(nodeIds, startNodeId, session) {
-	const queue = [...nodeIds];
+	const visited = new Set();
+	const queue = [startNodeId];
+
+	// BFS to mark all reachable nodes from startNode
 	while (queue.length > 0) {
 		const currentId = queue.shift();
-		if (currentId.toString() === startNodeId.toString()) {
-			continue;
+		if (visited.has(currentId.toString())) continue;
+		visited.add(currentId.toString());
+
+		const node = await Node.findById(currentId).session(session);
+		if (node) {
+			const nextIds = node.connections
+				.filter((conn) => conn.type === 'next')
+				.map((conn) => conn.nodeId);
+			queue.push(...nextIds);
 		}
-		// Check if this node has any parents
-		const hasParents = await Node.exists({
-			'connections.nodeId': currentId,
-			'connections.type': 'next',
-		}).session(session);
-		if (!hasParents) {
-			// Delete this node
-			const node = await Node.findById(currentId).session(session);
-			if (node) {
-				const childrenIds = node.connections
-					.filter((conn) => conn.type === 'next')
-					.map((conn) => conn.nodeId);
-				await Node.deleteOne({ _id: currentId }, { session });
-				// Add its children to the queue
-				queue.push(...childrenIds);
-			}
+	}
+
+	// Delete nodes not visited (orphaned)
+	for (const nodeId of nodeIds) {
+		if (!visited.has(nodeId.toString())) {
+			await Node.deleteOne({ _id: nodeId }, { session });
 		}
 	}
 }
@@ -189,11 +183,9 @@ export const updateNodeConnections = async (req, res) => {
 	let session;
 
 	try {
-		// Start a transaction to ensure atomicity
 		session = await mongoose.startSession();
 		session.startTransaction();
 
-		// Verify flow exists and user is authorized
 		const flow = await Flow.findById(flowId).session(session);
 		if (!flow) {
 			await session.abortTransaction();
@@ -201,15 +193,16 @@ export const updateNodeConnections = async (req, res) => {
 			return res.status(404).json({ message: 'Flow not found' });
 		}
 		if (flow.isCommitted) {
+			await session.abortTransaction();
+			session.endSession();
 			return res
 				.status(406)
-				.json({ message: 'Flow is committed! Cannot add nodes to it' });
+				.json({ message: 'Flow is committed! Cannot update nodes' });
 		}
 
-		// Map temporary IDs (non-MongoDB) to MongoDB IDs for new nodes
 		const tempIdToMongoId = {};
 
-		// Step 1: Create new nodes with non-MongoDB IDs
+		// Create new nodes with temporary IDs
 		for (const update of nodeUpdates) {
 			if (!update.id || !mongoose.Types.ObjectId.isValid(update.id)) {
 				const newNode = await Node.create(
@@ -219,12 +212,13 @@ export const updateNodeConnections = async (req, res) => {
 							userId,
 							title: update.title,
 							content: update.content,
-							tags: update.tags,
+							tags: update.tags || [],
+							systemTags: update.systemTags || [],
 							type: update.type,
 							connections: [],
 							mediaUrl: update.mediaUrl,
-							isStartNode: update.isStartNode,
-							isEndNode: update.isEndNode,
+							isStartNode: update.isStartNode || false,
+							isEndNode: update.isEndNode || true,
 						},
 					],
 					{ session },
@@ -233,7 +227,7 @@ export const updateNodeConnections = async (req, res) => {
 			}
 		}
 
-		// Step 2: Update existing nodes and their connections
+		// Update existing nodes and their connections
 		for (const update of nodeUpdates) {
 			const nodeId = mongoose.Types.ObjectId.isValid(update.id)
 				? update.id
@@ -241,14 +235,14 @@ export const updateNodeConnections = async (req, res) => {
 			const node = await Node.findById(nodeId).session(session);
 			if (!node) continue;
 
-			// Update node properties
 			node.title = update.title;
 			node.content = update.content;
-			node.tags = update.tags;
+			node.tags = update.tags || node.tags;
+			node.systemTags = update.systemTags || node.systemTags;
 			node.type = update.type;
 			node.mediaUrl = update.mediaUrl;
 
-			// Update connections, mapping temporary IDs to MongoDB IDs
+			// Update connections, mapping temporary IDs
 			node.connections = update.connections.map((conn) => ({
 				nodeId: mongoose.Types.ObjectId.isValid(conn.nodeId)
 					? conn.nodeId
@@ -256,29 +250,38 @@ export const updateNodeConnections = async (req, res) => {
 				type: conn.type,
 			}));
 
-			// Set isEndNode based on whether there are 'next' connections
-			node.isEndNode = !node.connections.some((conn) => conn.type === 'next');
+			// Validate connections
+			for (const conn of node.connections) {
+				if (!(await Node.findById(conn.nodeId).session(session))) {
+					throw new Error(
+						`Invalid connection: Node ${conn.nodeId} does not exist`,
+					);
+				}
+			}
 
+			node.isEndNode = !node.connections.some((conn) => conn.type === 'next');
 			await node.save({ session });
 		}
 
-		// Step 3: Delete specified nodes and remove their connections
+		// Delete specified nodes
 		for (const deleteId of deleteNodes) {
 			const node = await Node.findById(deleteId).session(session);
 			if (!node) continue;
 
-			// Remove this node's ID from other nodes' connections
+			if (flow.startNode && flow.startNode.toString() === deleteId) {
+				throw new Error('Cannot delete the start node');
+			}
+
 			await Node.updateMany(
 				{ 'connections.nodeId': deleteId },
 				{ $pull: { connections: { nodeId: deleteId } } },
 				{ session },
 			);
 
-			// Delete the node itself
 			await Node.deleteOne({ _id: deleteId }, { session });
 		}
 
-		// Step 4: Clean up nodes without parents (except start nodes)
+		// Clean up orphaned nodes
 		const allNodes = await Node.find({ flowId }).session(session);
 		await deleteOrphanedNodes(
 			allNodes.map((n) => n._id),
@@ -286,7 +289,13 @@ export const updateNodeConnections = async (req, res) => {
 			session,
 		);
 
-		// Commit the transaction
+		// Update flow's nodes array
+		const remainingNodes = await Node.find({ flowId })
+			.select('_id')
+			.session(session);
+		flow.nodes = remainingNodes.map((n) => n._id);
+		await flow.save({ session });
+
 		await session.commitTransaction();
 		session.endSession();
 

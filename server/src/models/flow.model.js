@@ -13,7 +13,7 @@ const FlowSchema = new Schema(
 		systemTags: [{ type: String }],
 		type: {
 			type: String,
-			enum: ['serial', 'routine', 'plan'],
+			enum: ['serial', 'memory', 'routine', 'plan'],
 			default: 'serial',
 		},
 		visibility: {
@@ -28,7 +28,8 @@ const FlowSchema = new Schema(
 				userId: { type: Schema.Types.ObjectId, ref: 'Users' },
 				role: {
 					type: String,
-					enum: ['owner', 'editor', 'viewer'],
+					enum: ['admin', 'editor', 'viewer'],
+					default: 'viewer',
 				},
 			},
 		],

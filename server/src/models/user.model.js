@@ -1,43 +1,33 @@
 import { Schema, model } from 'mongoose';
-
-const UserSchema = new Schema(
+const userSchema = new Schema(
 	{
 		email: {
 			type: String,
 			required: true,
 			unique: true,
-			index: true,
+			lowercase: true,
+			trim: true,
 		},
+		password: { type: String, required: true },
 		username: {
 			type: String,
 			required: true,
 			unique: true,
-			index: true,
+			trim: true,
+			minlength: 3,
 		},
-		password: {
-			type: String,
-			required: true,
-		},
-		name: {
-			type: String,
-			required: true,
-		},
-		bio: {
-			type: String,
-		},
-		avatar: {
-			type: String,
-		},
+		name: { type: String, required: true, trim: true },
+		bio: { type: String, trim: true, default: null },
 		type: {
 			type: String,
 			enum: ['Free', 'Premium', 'Enterprise'],
 			default: 'Free',
 		},
-		planDetails: { type: Object },
+		planDetails: { type: Object, default: {} },
+		lastActivity: { type: Date, default: Date.now },
+		isActive: { type: Boolean, default: true },
 	},
 	{ timestamps: true },
 );
 
-const User = model('Users', UserSchema, 'Users');
-
-export default User;
+export default model('User', userSchema, 'Users');

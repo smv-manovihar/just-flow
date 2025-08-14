@@ -17,6 +17,8 @@ export const createFlow = async (req, res) => {
 		price,
 		isCommitted,
 		isDraft,
+		origin,
+		reFlowedFrom,
 	} = req.body;
 	const userId = req.userId;
 	let session;
@@ -39,25 +41,24 @@ export const createFlow = async (req, res) => {
 					isSharedEditable: isSharedEditable || false,
 					isCommitted: isCommitted || false,
 					isDraft: isDraft || false,
+					reFlowedFrom: reFlowedFrom || [],
+					systemTags: [],
+					origin: origin || { userId, flowId: null },
 				},
 			],
 			{ session },
 		);
 
-		// Map from temporary node IDs to MongoDB _ids
 		const tempIdToMongoId = {};
-
-		// Ensure startNode has an id
 		const startNodeWithId = { ...startNode, id: startNode.id || 'start' };
 		const allNodes = [startNodeWithId, ...nodes];
 
-		// Create all nodes with empty connections
 		for (const node of allNodes) {
 			const newNode = await Node.create(
 				[
 					{
 						flowId: flow[0]._id,
-						userId: userId,
+						userId,
 						title: node.title,
 						content: node?.content,
 						tags: node?.tags,
@@ -74,10 +75,9 @@ export const createFlow = async (req, res) => {
 			flow[0].nodes.push(newNode[0]._id);
 		}
 
-		// Set startNode
 		flow[0].startNode = tempIdToMongoId[startNodeWithId.id];
+		flow[0].origin.flowId = flow[0]._id; // Set origin flowId
 
-		// Update connections
 		for (const node of allNodes) {
 			const mongoId = tempIdToMongoId[node.id];
 			const connections = (node.connections || []).map((conn) => ({
@@ -116,14 +116,13 @@ export const createFlow = async (req, res) => {
 export const getFlowWithNodes = async (req, res) => {
 	const { flowId } = req.params;
 	try {
-		const flow = await Flow.findById(flowId);
+		const flow = await Flow.findById(flowId).populate('nodes'); // Optimized with populate
 		if (!flow) {
 			return res.status(404).json({ message: 'Flow not found' });
 		}
-		const nodes = await Node.find({ flowId });
-		res.json({ message: 'Flow found', flow, nodes });
+		res.json({ message: 'Flow found', flow });
 	} catch (err) {
-		res.status(500).json({ message: 'Server error' });
+		res.status(500).json({ message: 'Server error', error: err.message });
 	}
 };
 
@@ -146,6 +145,8 @@ export const deleteFlow = async (req, res) => {
 		}
 
 		await Node.deleteMany({ flowId: flow._id }).session(session);
+		await Like.deleteMany({ flowId: flow._id }).session(session);
+		await Comment.deleteMany({ flowId: flow._id }).session(session);
 		await Flow.deleteOne({ _id: flow._id }).session(session);
 
 		await session.commitTransaction();
@@ -164,14 +165,12 @@ export const deleteFlow = async (req, res) => {
 export const getFlow = async (req, res) => {
 	const { flowId } = req.params;
 	try {
-		const flow = await Flow.findById(flowId);
-		const likes = await Like.find({ flowId });
-		const comments = await Comment.find({ flowId });
+		const flow = await Flow.findById(flowId).populate('startNode'); // Optimized with populate
 		if (!flow) {
 			return res.status(404).json({ message: 'Flow not found' });
 		}
-		const startNode = await Node.findById(flow.startNode);
-		flow.startNode = startNode;
+		const likes = await Like.find({ flowId });
+		const comments = await Comment.find({ flowId });
 		res.json({
 			message: 'Flow found',
 			flow,
@@ -179,7 +178,7 @@ export const getFlow = async (req, res) => {
 			numComments: comments.length,
 		});
 	} catch (err) {
-		res.status(500).json({ message: 'Server error' });
+		res.status(500).json({ message: 'Server error', error: err.message });
 	}
 };
 
@@ -197,16 +196,15 @@ export const updateFlow = async (req, res) => {
 		price,
 		isCommitted,
 		isDraft,
+		systemTags,
 	} = req.body;
 	const userId = req.userId;
 	let session;
 
 	try {
-		// Start a MongoDB transaction
 		session = await mongoose.startSession();
 		session.startTransaction();
 
-		// Verify flow exists
 		const flow = await Flow.findById(flowId).session(session);
 		if (!flow) {
 			await session.abortTransaction();
@@ -214,15 +212,12 @@ export const updateFlow = async (req, res) => {
 			return res.status(404).json({ message: 'Flow not found' });
 		}
 
-		// Track temporary IDs to MongoDB IDs and existing nodes
 		const tempIdToMongoId = {};
 		const existingNodeIds = new Set();
 		const nodesToDelete = new Set(flow.nodes.map((id) => id.toString()));
 
-		// Process nodes: create new ones, update existing ones
 		for (const node of nodes) {
 			if (node.id && mongoose.Types.ObjectId.isValid(node.id)) {
-				// Update existing node
 				const nodeId = node.id;
 				existingNodeIds.add(nodeId);
 				nodesToDelete.delete(nodeId);
@@ -239,7 +234,6 @@ export const updateFlow = async (req, res) => {
 					await existingNode.save({ session });
 				}
 			} else {
-				// Create new node
 				const newNode = await Node.create(
 					[
 						{
@@ -262,7 +256,6 @@ export const updateFlow = async (req, res) => {
 			}
 		}
 
-		// Delete nodes not in the request
 		for (const nodeId of nodesToDelete) {
 			await Node.deleteOne({ _id: nodeId }, { session });
 		}
@@ -305,14 +298,22 @@ export const updateFlow = async (req, res) => {
 		flow.nodes = Array.from(existingNodeIds).map((id) =>
 			mongoose.Types.ObjectId(id),
 		);
-		flow.startNode =
+
+		const startNodeId =
 			startNode && mongoose.Types.ObjectId.isValid(startNode)
 				? startNode
 				: tempIdToMongoId[startNode];
+		if (startNodeId && !flow.nodes.includes(startNodeId)) {
+			await session.abortTransaction();
+			session.endSession();
+			return res
+				.status(400)
+				.json({ message: "startNode must be part of the flow's nodes" });
+		}
+		flow.startNode = startNodeId;
 
 		await flow.save({ session });
 
-		// Commit transaction
 		await session.commitTransaction();
 		session.endSession();
 

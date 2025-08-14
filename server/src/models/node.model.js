@@ -35,9 +35,7 @@ const NodesSchema = new Schema(
 		connections: [
 			{
 				nodeId: { type: Schema.Types.ObjectId, ref: 'Nodes' },
-				name: {
-					type: String,
-				},
+				name: { type: String },
 				type: {
 					type: String,
 					enum: ['next', 'sibling', 'parent'],
