@@ -2,7 +2,11 @@ import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
 import RefreshToken from '../models/refreshToken.model.js';
 import { hash, compare } from 'bcrypt';
-import { JWT_SECRET } from '../config/conf.js';
+import {
+	JWT_SECRET,
+	OTP_EXPIRY_MINUTES,
+	VERIFICATION_TOKEN_EXPIRY_HOURS,
+} from '../config/config.js';
 import {
 	generateAccessAndRefreshTokens,
 	attachTokens,
@@ -10,6 +14,11 @@ import {
 	shouldExtendRefreshWindow,
 } from '../helpers/auth.helpers.js';
 import { getUserByUsernameOrEmail } from '../utils/user.utils.js';
+import {
+	generateOTP,
+	generateVerificationToken,
+	sendEmailVerification,
+} from '../utils/email.utils.js';
 
 const publicUser = (u) => ({
 	id: u._id,
@@ -20,6 +29,7 @@ const publicUser = (u) => ({
 	type: u.type,
 	planDetails: u.planDetails,
 	lastActivity: u.lastActivity,
+	isEmailVerified: u.isEmailVerified,
 });
 
 export const loginUser = async (req, res) => {
@@ -44,6 +54,9 @@ export const loginUser = async (req, res) => {
 				message: 'Account is deactivated',
 			});
 		}
+
+		// Allow login even if email is not verified
+		// The frontend can handle limiting actions based on verification status
 
 		const ok = await compare(password, user.password);
 		if (!ok) {
@@ -124,6 +137,15 @@ export const registerUser = async (req, res) => {
 		}
 
 		const hashed = await hash(password, 10);
+
+		// Generate verification token and OTP
+		const verificationToken = generateVerificationToken();
+		const verificationOtp = generateOTP();
+		const otpExpiry = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+		const tokenExpiry = new Date(
+			Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000,
+		);
+
 		const newUser = new User({
 			email: email.toLowerCase(),
 			password: hashed,
@@ -132,9 +154,21 @@ export const registerUser = async (req, res) => {
 			bio: bio || null,
 			type: type || 'Free',
 			planDetails: planDetails || {},
+			emailVerificationToken: verificationToken,
+			emailVerificationExpiresAt: tokenExpiry,
+			emailVerificationOtp: verificationOtp,
+			emailVerificationOtpExpiresAt: otpExpiry,
 		});
 
 		await newUser.save();
+
+		// Send single email with both OTP and link verification methods
+		const emailSent = await sendEmailVerification(
+			newUser.email,
+			verificationOtp,
+			verificationToken,
+			newUser.username,
+		);
 
 		// Generate tokens with device info
 		const { accessToken, refreshToken, expiresAt } =
@@ -144,11 +178,16 @@ export const registerUser = async (req, res) => {
 		attachTokens(accessToken, refreshToken, res);
 
 		res.status(201).json({
-			message: 'Registration successful',
+			message:
+				'Registration successful. Please check your email for verification.',
 			user: publicUser(newUser),
 			accessToken,
 			refreshToken,
 			sessionExpiresAt: expiresAt,
+			emailVerification: {
+				emailSent: emailSent,
+				message: 'Verification email sent with both OTP and link methods.',
+			},
 		});
 	} catch (err) {
 		console.error('Registration error:', err);
@@ -366,6 +405,220 @@ export const logoutAllDevices = async (req, res) => {
 		});
 	} catch (error) {
 		console.error('Logout all devices error:', error);
+		res.status(500).json({
+			message: 'Server error',
+		});
+	}
+};
+
+// Email verification functions
+export const verifyEmailWithOTP = async (req, res) => {
+	const { email, otp } = req.body;
+
+	if (!email || !otp) {
+		return res.status(400).json({
+			message: 'Email and OTP are required',
+		});
+	}
+
+	try {
+		const user = await User.findOne({ email: email.toLowerCase() });
+
+		if (!user) {
+			return res.status(404).json({
+				message: 'User not found',
+			});
+		}
+
+		if (user.isEmailVerified) {
+			return res.status(400).json({
+				message: 'Email is already verified',
+			});
+		}
+
+		if (!user.emailVerificationOtp || !user.emailVerificationOtpExpiresAt) {
+			return res.status(400).json({
+				message: 'No OTP found. Please request a new verification email.',
+			});
+		}
+
+		if (new Date() > user.emailVerificationOtpExpiresAt) {
+			return res.status(400).json({
+				message: 'OTP has expired. Please request a new verification email.',
+			});
+		}
+
+		if (user.emailVerificationOtp !== otp) {
+			return res.status(400).json({
+				message: 'Invalid OTP',
+			});
+		}
+
+		// Mark email as verified and clear verification data
+		user.isEmailVerified = true;
+		user.emailVerificationOtp = null;
+		user.emailVerificationOtpExpiresAt = null;
+		user.emailVerificationToken = null;
+		user.emailVerificationExpiresAt = null;
+
+		await user.save();
+
+		res.json({
+			message: 'Email verified successfully',
+			user: publicUser(user),
+		});
+	} catch (error) {
+		console.error('Email verification OTP error:', error);
+		res.status(500).json({
+			message: 'Server error',
+		});
+	}
+};
+
+export const verifyEmailWithToken = async (req, res) => {
+	const { token } = req.params;
+
+	if (!token) {
+		return res.status(400).json({
+			message: 'Verification token is required',
+		});
+	}
+
+	try {
+		const user = await User.findOne({
+			emailVerificationToken: token,
+			emailVerificationExpiresAt: { $gt: new Date() },
+		});
+
+		if (!user) {
+			return res.status(400).json({
+				message: 'Invalid or expired verification token',
+			});
+		}
+
+		if (user.isEmailVerified) {
+			return res.status(400).json({
+				message: 'Email is already verified',
+			});
+		}
+
+		// Mark email as verified and clear verification data
+		user.isEmailVerified = true;
+		user.emailVerificationOtp = null;
+		user.emailVerificationOtpExpiresAt = null;
+		user.emailVerificationToken = null;
+		user.emailVerificationExpiresAt = null;
+
+		await user.save();
+
+		res.json({
+			message: 'Email verified successfully',
+			user: publicUser(user),
+		});
+	} catch (error) {
+		console.error('Email verification token error:', error);
+		res.status(500).json({
+			message: 'Server error',
+		});
+	}
+};
+
+export const resendVerificationEmail = async (req, res) => {
+	const { email, method = 'both' } = req.body; // method can be 'otp', 'link', or 'both'
+
+	if (!email) {
+		return res.status(400).json({
+			message: 'Email is required',
+		});
+	}
+
+	if (!['otp', 'link', 'both'].includes(method)) {
+		return res.status(400).json({
+			message: 'Method must be otp, link, or both',
+		});
+	}
+
+	try {
+		const user = await User.findOne({ email: email.toLowerCase() });
+
+		if (!user) {
+			return res.status(404).json({
+				message: 'User not found',
+			});
+		}
+
+		if (user.isEmailVerified) {
+			return res.status(400).json({
+				message: 'Email is already verified',
+			});
+		}
+
+		let emailSent = false;
+
+		// Generate new verification data
+		const newOtp = generateOTP();
+		const newToken = generateVerificationToken();
+		const otpExpiry = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+		const tokenExpiry = new Date(
+			Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000,
+		);
+
+		user.emailVerificationOtp = newOtp;
+		user.emailVerificationOtpExpiresAt = otpExpiry;
+		user.emailVerificationToken = newToken;
+		user.emailVerificationExpiresAt = tokenExpiry;
+
+		emailSent = await sendEmailVerification(
+			user.email,
+			newOtp,
+			newToken,
+			user.username,
+		);
+
+		await user.save();
+
+		res.json({
+			message: 'Verification email sent successfully',
+			emailVerification: {
+				emailSent: emailSent,
+				method: method,
+			},
+		});
+	} catch (error) {
+		console.error('Resend verification email error:', error);
+		res.status(500).json({
+			message: 'Server error',
+		});
+	}
+};
+
+export const checkEmailVerificationStatus = async (req, res) => {
+	const { email } = req.params;
+
+	if (!email) {
+		return res.status(400).json({
+			message: 'Email is required',
+		});
+	}
+
+	try {
+		const user = await User.findOne({ email: email.toLowerCase() });
+
+		if (!user) {
+			return res.status(404).json({
+				message: 'User not found',
+			});
+		}
+
+		res.json({
+			isEmailVerified: user.isEmailVerified,
+			hasOtp: !!user.emailVerificationOtp,
+			hasToken: !!user.emailVerificationToken,
+			otpExpiresAt: user.emailVerificationOtpExpiresAt,
+			tokenExpiresAt: user.emailVerificationExpiresAt,
+		});
+	} catch (error) {
+		console.error('Check email verification status error:', error);
 		res.status(500).json({
 			message: 'Server error',
 		});

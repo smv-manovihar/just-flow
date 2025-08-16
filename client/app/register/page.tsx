@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/authContext";
+
 import {
   Card,
   CardHeader,
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { register as registerApi } from "@/api/auth.api";
+import EmailVerificationModal from "@/components/EmailVerificationModal";
+import { Mail, CheckCircle } from "lucide-react";
 import Link from "next/link";
 
 export default function RegisterPage() {
@@ -24,8 +26,10 @@ export default function RegisterPage() {
     bio: "",
   });
   const [error, setError] = useState("");
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
   const router = useRouter();
-  const { login } = useAuth();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -53,14 +57,78 @@ export default function RegisterPage() {
     }
 
     try {
-      await registerApi(formData);
-      // After successful registration, log the user in
-      await login({ email: formData.email, password: formData.password });
-      router.push("/profile");
+      const response = await registerApi(formData);
+      
+      if (response.success && response.data) {
+        setRegisteredEmail(formData.email);
+        setRegistrationSuccess(true);
+        // Don't automatically log in - user needs to verify email first
+      } else {
+        setError(response.message || "Registration failed");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     }
   };
+
+  const handleVerificationSuccess = () => {
+    setShowVerificationModal(false);
+    setRegistrationSuccess(false);
+    router.push("/profile");
+  };
+
+  if (registrationSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <CardTitle className="text-xl font-semibold">
+              Account Created Successfully!
+            </CardTitle>
+            <CardDescription>
+              We&apos;ve sent a verification email to{" "}
+              <span className="font-medium">{registeredEmail}</span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Please check your email and verify your account to continue.
+            </p>
+            <div className="space-y-2">
+              <Button
+                onClick={() => setShowVerificationModal(true)}
+                className="w-full"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Verify with OTP
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/login")}
+                className="w-full"
+              >
+                Go to Login
+              </Button>
+            </div>
+          </CardContent>
+                      <CardFooter className="flex justify-center">
+              <p className="text-sm text-muted-foreground">
+                Didn&apos;t receive the email?{" "}
+                <button
+                  onClick={() => setShowVerificationModal(true)}
+                  className="text-primary hover:underline"
+                >
+                  Resend verification
+                </button>
+              </p>
+            </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -166,6 +234,14 @@ export default function RegisterPage() {
           </p>
         </CardFooter>
       </Card>
+
+      {showVerificationModal && (
+        <EmailVerificationModal
+          email={registeredEmail}
+          onClose={() => setShowVerificationModal(false)}
+          onSuccess={handleVerificationSuccess}
+        />
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FcGoogle } from "react-icons/fc";
+import EmailVerificationModal from "@/components/EmailVerificationModal";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
 
@@ -31,15 +33,23 @@ export default function LoginPage() {
     try {
       await login({ email, password });
       router.push("/profile");
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "An error occurred during login"
-      );
+    } catch (error: unknown) {
+      // Handle login errors
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response: { data: { message?: string } } };
+        setError(axiosError.response?.data?.message || "An error occurred during login");
+      } else {
+        const errorMessage = error instanceof Error ? error.message : "An error occurred during login";
+        setError(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVerificationSuccess = () => {
+    setShowVerificationModal(false);
+    router.push("/profile");
   };
   const handleGoogleLogin = async () => {};
   return (
@@ -82,9 +92,9 @@ export default function LoginPage() {
                 disabled={isLoading}
               />
             </div>
-            {error && (
-              <p className="text-sm text-destructive text-center">{error}</p>
-            )}
+                              {error && (
+                    <p className="text-sm text-destructive text-center">{error}</p>
+                  )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
@@ -108,6 +118,14 @@ export default function LoginPage() {
           </p>
         </CardFooter>
       </Card>
+
+      {showVerificationModal && (
+        <EmailVerificationModal
+          email={email}
+          onClose={() => setShowVerificationModal(false)}
+          onSuccess={handleVerificationSuccess}
+        />
+      )}
     </div>
   );
 }

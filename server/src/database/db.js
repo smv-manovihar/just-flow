@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { MONGODB_ADMIN_URI } from '../config/db.conf.js';
+import { MONGODB_ADMIN_URI } from '../config/db.config.js';
 
 export const connectDB = async () => {
 	try {
@@ -9,3 +9,6 @@ export const connectDB = async () => {
 		console.log('Error connecting to MongoDB:', err);
 	}
 };
+
+export const getDBStatus = () =>
+	mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';

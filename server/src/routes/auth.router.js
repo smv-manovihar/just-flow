@@ -9,6 +9,10 @@ import {
 	getUserDevices,
 	logoutDevice,
 	logoutAllDevices,
+	verifyEmailWithOTP,
+	verifyEmailWithToken,
+	resendVerificationEmail,
+	checkEmailVerificationStatus,
 } from '../controllers/auth.controller.js';
 import { authenticateJWT } from '../middlewares/auth.middleware.js';
 import { trackUserActivity } from '../middlewares/activity.middleware.js';
@@ -19,6 +23,12 @@ const router = Router();
 router.post('/login', loginUser);
 router.post('/register', registerUser);
 router.post('/token', refreshAccessToken);
+
+// Email verification routes (public)
+router.post('/verify-email/otp', verifyEmailWithOTP);
+router.get('/verify-email/:token', verifyEmailWithToken);
+router.post('/resend-verification', resendVerificationEmail);
+router.get('/verification-status/:email', checkEmailVerificationStatus);
 
 // Protected routes (require authentication)
 router.use(authenticateJWT);

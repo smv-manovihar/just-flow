@@ -23,12 +23,25 @@ const userSchema = new Schema(
 			enum: ['Free', 'Premium', 'Enterprise'],
 			default: 'Free',
 		},
-		provider: { type: String, required: true, default: 'local' },
-		providerId: { type: String, required: true, default: null },
+		provider: { type: String, default: 'local' },
+		providerId: { type: String, default: null },
 		avatar: { type: String, default: null },
 		planDetails: { type: Object, default: {} },
 		lastActivity: { type: Date, default: Date.now },
 		isActive: { type: Boolean, default: true },
+
+		// Email verification fields
+		isEmailVerified: { type: Boolean, default: false },
+		emailVerificationToken: { type: String, default: null },
+		emailVerificationExpiresAt: { type: Date, default: null },
+		emailVerificationOtp: { type: String, default: null },
+		emailVerificationOtpExpiresAt: { type: Date, default: null },
+
+		// Password reset fields
+		resetPasswordToken: { type: String, default: null },
+		resetPasswordExpiresAt: { type: Date, default: null },
+		resetPasswordOtp: { type: String, default: null },
+		resetPasswordOtpExpiresAt: { type: Date, default: null },
 	},
 	{ timestamps: true },
 );

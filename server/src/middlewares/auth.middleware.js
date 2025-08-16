@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
-import { JWT_SECRET } from '../config/conf.js';
+import { JWT_SECRET } from '../config/config.js';
 import { extractToken } from '../helpers/auth.helpers.js';
 
 export const authenticateJWT = async (req, res, next) => {

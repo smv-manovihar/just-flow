@@ -2,13 +2,13 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
-import { connectDB } from './database/db.js';
+import { connectDB, getDBStatus } from './database/db.js';
 import authRouter from './routes/auth.router.js';
 import flowRouter from './routes/flow.router.js';
 import userRouter from './routes/user.router.js';
 import { authenticateJWT } from './middlewares/auth.middleware.js';
 import { trackUserActivity } from './middlewares/activity.middleware.js';
-import { PORT } from './config/conf.js';
+import { PORT } from './config/config.js';
 
 const app = express();
 
@@ -18,7 +18,7 @@ app.use(
 		origin:
 			process.env.NODE_ENV === 'production'
 				? process.env.FRONTEND_URL
-				: 'http://localhost:3000',
+				: process.env.FRONTEND_URL || 'http://localhost:3000',
 		credentials: true,
 		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 		allowedHeaders: [
@@ -47,14 +47,23 @@ app.use(cookieParser());
 // Request logging in development
 if (process.env.NODE_ENV === 'development') {
 	app.use((req, res, next) => {
-		console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+		const start = Date.now();
+		res.on('finish', () => {
+			const duration = Date.now() - start;
+			console.log(
+				`${new Date().toISOString()} - ${req.method} ${
+					req.originalUrl
+				} | Status: ${res.statusCode} | ${duration}ms`,
+			);
+		});
+
 		next();
 	});
 }
 
 // Rate limiting for auth routes
 const authLimiter = rateLimit({
-	windowMs: 15 * 60 * 1000,
+	windowMs: 60 * 1000,
 	max: 10,
 	message: 'Too many authentication attempts, please try again later.',
 	standardHeaders: true,
@@ -67,8 +76,7 @@ app.use('/api/auth', authLimiter, authRouter);
 // Health check
 app.get('/api/health', async (req, res) => {
 	try {
-		const dbStatus =
-			mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+		const dbStatus = getDBStatus();
 		res.json({
 			status: 'ok',
 			timestamp: new Date().toISOString(),
@@ -86,7 +94,7 @@ app.get('/api/health', async (req, res) => {
 // Protected endpoints with activity tracking
 app.use('/api/flows', authenticateJWT, trackUserActivity, flowRouter);
 app.use('/api/users', authenticateJWT, trackUserActivity, userRouter);
-// Error handling middleware
+
 app.use((err, req, res, next) => {
 	console.error('Error:', err);
 

@@ -7,7 +7,7 @@ import {
 	SLIDING_WINDOW_MS,
 	EXTEND_WINDOW_MS,
 	INACTIVITY_TIMEOUT_MS,
-} from '../config/conf.js';
+} from '../config/config.js';
 
 export const extractToken = (req) => {
 	const auth = req.headers.authorization;

@@ -20,7 +20,12 @@ export type User = {
   name: string;
   bio: string;
   type: string;
+  provider: string | null;
+  providerId: string | null;
+  avatarUrl: string | undefined;
   planDetails: TPlanDetails;
+  isEmailVerified: boolean;
+  lastActivity: string;
 };
 
 export type TPlanDetails = {
@@ -34,3 +39,28 @@ export type TPlanDetails = {
     isTrial: boolean;
     expiresAt: string;
 }
+
+// Email verification types
+export type EmailVerificationOTP = {
+  email: string;
+  otp: string;
+};
+
+export type EmailVerificationStatus = {
+  isEmailVerified: boolean;
+  hasOtp: boolean;
+  hasToken: boolean;
+  otpExpiresAt: string | null;
+  tokenExpiresAt: string | null;
+};
+
+export type ResendVerificationData = {
+  email: string;
+  method: 'otp' | 'link' | 'both';
+};
+
+export type EmailVerificationResponse = {
+  emailSent: boolean;
+  method?: string;
+  message?: string;
+};
