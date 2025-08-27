@@ -13,11 +13,13 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, XCircle, Loader2, Mail } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 export default function VerifyEmailPage() {
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error">(
+    "loading"
+  );
   const [message, setMessage] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,32 +28,42 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     const verifyEmail = async () => {
       const token = searchParams.get("token");
-      
+
       if (!token) {
         setStatus("error");
-        setMessage("Invalid verification link. Please check your email for the correct link.");
+        setMessage(
+          "Invalid verification link. Please check your email for the correct link."
+        );
         return;
       }
 
       try {
         const response = await verifyEmailWithToken(token);
-        
+
         if (response.success && response.data) {
           setStatus("success");
-          setMessage("Email verified successfully! You can now access all features.");
+          setMessage(
+            "Email verified successfully! You can now access all features."
+          );
           setUser(response.data);
-          
+
           // Redirect to profile after 3 seconds
           setTimeout(() => {
             router.push("/profile");
           }, 3000);
         } else {
           setStatus("error");
-          setMessage(response.message || "Verification failed. Please try again.");
+          setMessage(
+            response.message || "Verification failed. Please try again."
+          );
         }
       } catch (error) {
         setStatus("error");
-        setMessage(error instanceof Error ? error.message : "Verification failed. Please try again.");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Verification failed. Please try again."
+        );
       }
     };
 
@@ -101,22 +113,16 @@ export default function VerifyEmailPage() {
           <CardTitle className="text-xl font-semibold">
             {getStatusTitle()}
           </CardTitle>
-          <CardDescription>
-            {getStatusDescription()}
-          </CardDescription>
+          <CardDescription>{getStatusDescription()}</CardDescription>
         </CardHeader>
         <CardContent className="text-center">
           {message && (
-            <p className="text-sm text-muted-foreground mb-4">
-              {message}
-            </p>
+            <p className="text-sm text-muted-foreground mb-4">{message}</p>
           )}
-          
+
           {status === "error" && (
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                You can:
-              </p>
+              <p className="text-sm text-muted-foreground">You can:</p>
               <div className="space-y-2">
                 <Button
                   variant="outline"

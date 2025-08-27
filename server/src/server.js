@@ -10,6 +10,9 @@ import { authenticateJWT } from './middlewares/auth.middleware.js';
 import { trackUserActivity } from './middlewares/activity.middleware.js';
 import { PORT } from './config/config.js';
 
+import fs from 'fs';
+import swaggerUi from 'swagger-ui-express';
+
 const app = express();
 
 // CORS configuration
@@ -94,6 +97,15 @@ app.get('/api/health', async (req, res) => {
 // Protected endpoints with activity tracking
 app.use('/api/flows', authenticateJWT, trackUserActivity, flowRouter);
 app.use('/api/users', authenticateJWT, trackUserActivity, userRouter);
+
+// Enable API docs with Swagger UI
+if (process.env.ENABLE_DOCS === 'true') {
+	const swaggerFile = JSON.parse(
+		fs.readFileSync(new URL('./docs/swagger-output.json', import.meta.url)),
+	);
+	app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
+	console.log('📄 API docs available at /api-docs');
+}
 
 app.use((err, req, res, next) => {
 	console.error('Error:', err);

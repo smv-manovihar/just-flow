@@ -58,7 +58,7 @@ export default function RegisterPage() {
 
     try {
       const response = await registerApi(formData);
-      
+
       if (response.success && response.data) {
         setRegisteredEmail(formData.email);
         setRegistrationSuccess(true);
@@ -114,18 +114,26 @@ export default function RegisterPage() {
               </Button>
             </div>
           </CardContent>
-                      <CardFooter className="flex justify-center">
-              <p className="text-sm text-muted-foreground">
-                Didn&apos;t receive the email?{" "}
-                <button
-                  onClick={() => setShowVerificationModal(true)}
-                  className="text-primary hover:underline"
-                >
-                  Resend verification
-                </button>
-              </p>
-            </CardFooter>
+          <CardFooter className="flex justify-center">
+            <p className="text-sm text-muted-foreground">
+              Didn&apos;t receive the email?{" "}
+              <button
+                onClick={() => setShowVerificationModal(true)}
+                className="text-primary hover:underline"
+              >
+                Resend verification
+              </button>
+            </p>
+          </CardFooter>
         </Card>
+
+        {showVerificationModal && (
+          <EmailVerificationModal
+            email={registeredEmail}
+            onClose={() => setShowVerificationModal(false)}
+            onSuccess={handleVerificationSuccess}
+          />
+        )}
       </div>
     );
   }
@@ -234,14 +242,6 @@ export default function RegisterPage() {
           </p>
         </CardFooter>
       </Card>
-
-      {showVerificationModal && (
-        <EmailVerificationModal
-          email={registeredEmail}
-          onClose={() => setShowVerificationModal(false)}
-          onSuccess={handleVerificationSuccess}
-        />
-      )}
     </div>
   );
 }
