@@ -35,11 +35,18 @@ export default function LoginPage() {
       router.push("/profile");
     } catch (error: unknown) {
       // Handle login errors
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response: { data: { message?: string } } };
-        setError(axiosError.response?.data?.message || "An error occurred during login");
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as {
+          response: { data: { message?: string } };
+        };
+        setError(
+          axiosError.response?.data?.message || "An error occurred during login"
+        );
       } else {
-        const errorMessage = error instanceof Error ? error.message : "An error occurred during login";
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "An error occurred during login";
         setError(errorMessage);
       }
     } finally {
@@ -92,9 +99,9 @@ export default function LoginPage() {
                 disabled={isLoading}
               />
             </div>
-                              {error && (
-                    <p className="text-sm text-destructive text-center">{error}</p>
-                  )}
+            {error && (
+              <p className="text-sm text-destructive text-center">{error}</p>
+            )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>

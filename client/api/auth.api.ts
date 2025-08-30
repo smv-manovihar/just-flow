@@ -36,7 +36,7 @@ export const register = async (data: RegisterData): Promise<ApiResponse<User>> =
 
 export const refreshToken = async (): Promise<ApiResponse<User>> => {
   try {
-    const response = await api.post("/api/auth/token", {}, { 
+    const response = await api.post("/api/auth/refresh", {}, { 
       withCredentials: true
     });
     return {

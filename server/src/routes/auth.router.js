@@ -22,7 +22,7 @@ const router = Router();
 // Public routes
 router.post('/login', loginUser);
 router.post('/register', registerUser);
-router.post('/token', refreshAccessToken);
+router.post('/refresh', refreshAccessToken);
 
 // Email verification routes (public)
 router.post('/verify-email/otp', verifyEmailWithOTP);
