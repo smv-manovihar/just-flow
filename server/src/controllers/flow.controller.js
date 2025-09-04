@@ -9,7 +9,7 @@ export const createFlow = async (req, res) => {
 		title,
 		tags,
 		type,
-		startNode,
+		headNode,
 		nodes,
 		visibility,
 		sharedWith,
@@ -50,8 +50,8 @@ export const createFlow = async (req, res) => {
 		);
 
 		const tempIdToMongoId = {};
-		const startNodeWithId = { ...startNode, id: startNode.id || 'start' };
-		const allNodes = [startNodeWithId, ...nodes];
+		const headNodeWithId = { ...headNode, id: headNode.id || 'start' };
+		const allNodes = [headNodeWithId, ...nodes];
 
 		for (const node of allNodes) {
 			const newNode = await Node.create(
@@ -65,7 +65,7 @@ export const createFlow = async (req, res) => {
 						type: node.type || 'text',
 						connections: [],
 						mediaUrl: node.mediaUrl,
-						isStartNode: node.id === startNodeWithId.id,
+						isheadNode: node.id === headNodeWithId.id,
 						isEndNode: true,
 					},
 				],
@@ -75,7 +75,7 @@ export const createFlow = async (req, res) => {
 			flow[0].nodes.push(newNode[0]._id);
 		}
 
-		flow[0].startNode = tempIdToMongoId[startNodeWithId.id];
+		flow[0].headNode = tempIdToMongoId[headNodeWithId.id];
 		flow[0].origin.flowId = flow[0]._id; // Set origin flowId
 
 		for (const node of allNodes) {
@@ -165,7 +165,7 @@ export const deleteFlow = async (req, res) => {
 export const getFlow = async (req, res) => {
 	const { flowId } = req.params;
 	try {
-		const flow = await Flow.findById(flowId).populate('startNode'); // Optimized with populate
+		const flow = await Flow.findById(flowId).populate('headNode'); // Optimized with populate
 		if (!flow) {
 			return res.status(404).json({ message: 'Flow not found' });
 		}
@@ -188,7 +188,7 @@ export const updateFlow = async (req, res) => {
 		title,
 		tags,
 		type,
-		startNode,
+		headNode,
 		nodes,
 		visibility,
 		sharedWith,
@@ -229,7 +229,7 @@ export const updateFlow = async (req, res) => {
 					existingNode.tags = node.tags;
 					existingNode.type = node.type;
 					existingNode.mediaUrl = node.mediaUrl;
-					existingNode.isStartNode = node.isStartNode;
+					existingNode.isheadNode = node.isheadNode;
 					existingNode.isEndNode = node.isEndNode;
 					await existingNode.save({ session });
 				}
@@ -245,7 +245,7 @@ export const updateFlow = async (req, res) => {
 							type: node.type,
 							connections: [],
 							mediaUrl: node.mediaUrl,
-							isStartNode: node.isStartNode,
+							isheadNode: node.isheadNode,
 							isEndNode: node.isEndNode,
 						},
 					],
@@ -299,18 +299,18 @@ export const updateFlow = async (req, res) => {
 			mongoose.Types.ObjectId(id),
 		);
 
-		const startNodeId =
-			startNode && mongoose.Types.ObjectId.isValid(startNode)
-				? startNode
-				: tempIdToMongoId[startNode];
-		if (startNodeId && !flow.nodes.includes(startNodeId)) {
+		const headNodeId =
+			headNode && mongoose.Types.ObjectId.isValid(headNode)
+				? headNode
+				: tempIdToMongoId[headNode];
+		if (headNodeId && !flow.nodes.includes(headNodeId)) {
 			await session.abortTransaction();
 			session.endSession();
 			return res
 				.status(400)
-				.json({ message: "startNode must be part of the flow's nodes" });
+				.json({ message: "headNode must be part of the flow's nodes" });
 		}
-		flow.startNode = startNodeId;
+		flow.headNode = headNodeId;
 
 		await flow.save({ session });
 

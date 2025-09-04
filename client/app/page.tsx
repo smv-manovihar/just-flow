@@ -15,6 +15,7 @@ import { RainbowButton } from "@/components/magicui/rainbow-button";
 import { ChevronRight } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ShinyButton } from "@/components/magicui/shiny-button";
+import routes from "@/lib/routes";
 
 export default function Home() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -82,7 +83,7 @@ export default function Home() {
                     <div className="flex flex-col gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => router.push("/profile")}
+                        onClick={() => router.push(routes.PROFILE)}
                         className="w-full justify-start border-foreground/20 dark:border-gray-700 text-foreground dark:text-gray-200"
                       >
                         View Profile
@@ -104,7 +105,7 @@ export default function Home() {
               <ThemeToggle />
               <Button
                 variant="outline"
-                onClick={() => router.push("/login")}
+                onClick={() => router.push(routes.LOGIN)}
                 className="rounded-full border-foreground/20 dark:border-gray-700 text-foreground dark:text-gray-200"
               >
                 Sign In
@@ -149,7 +150,7 @@ export default function Home() {
             {isAuthenticated ? (
               <RainbowButton
                 size="lg"
-                onClick={() => router.push("/profile")}
+                onClick={() => router.push(routes.PROFILE)}
                 className="rounded-full px-8"
               >
                 Go to Dashboard{" "}
@@ -159,7 +160,7 @@ export default function Home() {
               <>
                 <RainbowButton
                   size="lg"
-                  onClick={() => router.push("/login")}
+                  onClick={() => router.push(routes.LOGIN)}
                   className="rounded-full px-8"
                 >
                   Sign In{" "}
@@ -168,7 +169,7 @@ export default function Home() {
                 <RainbowButton
                   variant="outline"
                   size="lg"
-                  onClick={() => router.push("/register")}
+                  onClick={() => router.push(routes.REGISTER)}
                   className="rounded-full px-8 border-foreground/20 dark:border-gray-700"
                 >
                   Get Started{" "}
@@ -289,7 +290,7 @@ export default function Home() {
           </p>
           <ShinyButton
             onClick={() =>
-              router.push(isAuthenticated ? "/profile" : "/register")
+              router.push(isAuthenticated ? routes.PROFILE : routes.REGISTER)
             }
             className="rounded-full px-8 mt-4 text-white shadow-md shadow-black/30 dark:shadow-white/10"
           >

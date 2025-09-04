@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import Link from "next/link";
+import routes from "@/lib/routes";
 
 export default function VerifyEmailPage() {
   const [status, setStatus] = useState<"loading" | "success" | "error">(
@@ -127,7 +128,7 @@ export default function VerifyEmailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push("/login")}
+                  onClick={() => router.push(routes.LOGIN)}
                   className="w-full"
                 >
                   Go to Login
@@ -135,7 +136,7 @@ export default function VerifyEmailPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => router.push("/register")}
+                  onClick={() => router.push(routes.REGISTER)}
                   className="w-full"
                 >
                   Create New Account

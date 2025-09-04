@@ -374,7 +374,7 @@
                 "type": {
                   "example": "any"
                 },
-                "startNode": {
+                "headNode": {
                   "example": "any"
                 },
                 "nodes": {

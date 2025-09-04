@@ -46,7 +46,7 @@ export const addNodeToFlow = async (req, res) => {
 					connections: [{ type: 'parent', nodeId: prevNodeId }],
 					mediaUrl: node.mediaUrl,
 
-					isStartNode: false,
+					isheadNode: false,
 					isEndNode: true,
 				},
 			],
@@ -105,7 +105,7 @@ export const deleteNode = async (req, res) => {
 			return res.status(404).json({ message: 'Node not found' });
 		}
 
-		if (flow.startNode && flow.startNode.toString() === nodeId) {
+		if (flow.headNode && flow.headNode.toString() === nodeId) {
 			await session.abortTransaction();
 			session.endSession();
 			return res.status(400).json({ message: 'Cannot delete the start node' });
@@ -132,7 +132,7 @@ export const deleteNode = async (req, res) => {
 		const allNodes = await Node.find({ flowId }).session(session);
 		await deleteOrphanedNodes(
 			allNodes.map((n) => n._id),
-			flow.startNode,
+			flow.headNode,
 			session,
 		);
 
@@ -149,11 +149,11 @@ export const deleteNode = async (req, res) => {
 	}
 };
 
-async function deleteOrphanedNodes(nodeIds, startNodeId, session) {
+async function deleteOrphanedNodes(nodeIds, headNodeId, session) {
 	const visited = new Set();
-	const queue = [startNodeId];
+	const queue = [headNodeId];
 
-	// BFS to mark all reachable nodes from startNode
+	// BFS to mark all reachable nodes from headNode
 	while (queue.length > 0) {
 		const currentId = queue.shift();
 		if (visited.has(currentId.toString())) continue;
@@ -217,7 +217,7 @@ export const updateNodeConnections = async (req, res) => {
 							type: update.type,
 							connections: [],
 							mediaUrl: update.mediaUrl,
-							isStartNode: update.isStartNode || false,
+							isheadNode: update.isheadNode || false,
 							isEndNode: update.isEndNode || true,
 						},
 					],
@@ -268,7 +268,7 @@ export const updateNodeConnections = async (req, res) => {
 			const node = await Node.findById(deleteId).session(session);
 			if (!node) continue;
 
-			if (flow.startNode && flow.startNode.toString() === deleteId) {
+			if (flow.headNode && flow.headNode.toString() === deleteId) {
 				throw new Error('Cannot delete the start node');
 			}
 
@@ -285,7 +285,7 @@ export const updateNodeConnections = async (req, res) => {
 		const allNodes = await Node.find({ flowId }).session(session);
 		await deleteOrphanedNodes(
 			allNodes.map((n) => n._id),
-			flow.startNode,
+			flow.headNode,
 			session,
 		);
 
@@ -293,7 +293,6 @@ export const updateNodeConnections = async (req, res) => {
 		const remainingNodes = await Node.find({ flowId })
 			.select('_id')
 			.session(session);
-		flow.nodes = remainingNodes.map((n) => n._id);
 		await flow.save({ session });
 
 		await session.commitTransaction();

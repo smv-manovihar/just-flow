@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { FcGoogle } from "react-icons/fc";
 import EmailVerificationModal from "@/components/EmailVerificationModal";
 import Link from "next/link";
+import routes from "@/lib/routes";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -32,7 +33,7 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-      router.push("/profile");
+      router.push(routes.PROFILE);
     } catch (error: unknown) {
       // Handle login errors
       if (error && typeof error === "object" && "response" in error) {
@@ -56,7 +57,7 @@ export default function LoginPage() {
 
   const handleVerificationSuccess = () => {
     setShowVerificationModal(false);
-    router.push("/profile");
+    router.push(routes.PROFILE);
   };
   const handleGoogleLogin = async () => {};
   return (

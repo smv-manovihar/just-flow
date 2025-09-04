@@ -44,7 +44,7 @@ const NodesSchema = new Schema(
 			},
 		],
 		mediaUrl: { type: String },
-		isStartNode: { type: Boolean, default: false },
+		isheadNode: { type: Boolean, default: false },
 		isEndNode: { type: Boolean, default: false },
 	},
 	{ timestamps: true },

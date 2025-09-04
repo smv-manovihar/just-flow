@@ -16,6 +16,7 @@ import { register as registerApi } from "@/api/auth.api";
 import EmailVerificationModal from "@/components/EmailVerificationModal";
 import { Mail, CheckCircle } from "lucide-react";
 import Link from "next/link";
+import routes from "@/lib/routes";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -74,7 +75,7 @@ export default function RegisterPage() {
   const handleVerificationSuccess = () => {
     setShowVerificationModal(false);
     setRegistrationSuccess(false);
-    router.push("/profile");
+    router.push(routes.PROFILE);
   };
 
   if (registrationSuccess) {
@@ -107,7 +108,7 @@ export default function RegisterPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => router.push("/login")}
+                onClick={() => router.push(routes.LOGIN)}
                 className="w-full"
               >
                 Go to Login
@@ -236,7 +237,7 @@ export default function RegisterPage() {
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
+            <Link href={routes.LOGIN} className="text-primary hover:underline">
               Sign in
             </Link>
           </p>

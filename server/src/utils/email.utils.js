@@ -13,7 +13,7 @@ export const generateVerificationToken = () => {
 
 // Send email verification with both OTP and link
 export const sendEmailVerification = async (email, otp, token, username) => {
-	const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+	const verificationUrl = `${process.env.FRONTEND_URL}/auth/verify-email?token=${token}`;
 
 	const mailOptions = {
 		from: process.env.EMAIL_FROM || 'noreply@justflow.com',
@@ -152,7 +152,7 @@ export const sendEmailVerificationOTP = async (email, otp, username) => {
 
 // Send email verification with link
 export const sendEmailVerificationLink = async (email, token, username) => {
-	const verificationUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
+	const verificationUrl = `${process.env.FRONTEND_URL}/auth/verify-email?token=${token}`;
 
 	const mailOptions = {
 		from: process.env.EMAIL_FROM || 'noreply@justflow.com',

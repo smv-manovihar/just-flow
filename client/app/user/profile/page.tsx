@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/authContext";
+import { useRouter } from "next/navigation";
 import {
   Card,
   CardHeader,
@@ -33,44 +33,63 @@ import {
 import EmailVerificationBanner from "@/components/EmailVerificationBanner";
 import VerificationGuard from "@/components/VerificationGuard";
 import { getBlockedActions } from "@/lib/verificationGuard";
-import { ServerUser } from "@/lib/server-api";
+import { useState, useEffect } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
+import routes from "@/lib/routes";
 
-interface ProfileClientProps {
-  user: ServerUser;
-}
-
-export default function ProfileClient({ user }: ProfileClientProps) {
-  const { logout } = useAuth();
+export default function ProfilePage() {
+  const { user, logout, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+        router.push(routes.HOME);
+      } else {
+        setIsLoading(false);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
   const handleLogout = async () => {
     try {
       await logout();
-      router.push("/");
+      router.push(routes.HOME);
     } catch (error) {
       console.error("Logout error:", error);
     }
   };
 
+  if (isLoading || authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <p className="text-lg font-medium text-gray-600 dark:text-gray-300">
+          Loading profile...
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Email Verification Banner */}
+    <div className="min-h-screen bg-background">
       <EmailVerificationBanner />
 
       <div className="container mx-auto p-6 max-w-4xl">
         {/* Profile Header */}
-        <Card className="mb-8 overflow-hidden">
+        <Card className="mb-8 overflow-hidden bg-white dark:bg-gray-900">
           <div className="h-32 bg-gradient-to-r from-blue-500 to-indigo-600" />
-          <div className="px-6 pt-0 pb-6 bg-white">
+          <div className="px-6 pt-0 pb-6 bg-white dark:bg-gray-900">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              <Avatar className="w-24 h-24 ring-4 ring-white bg-gray-200 relative z-10">
+              <Avatar className="w-24 h-24 ring-4 ring-white dark:ring-gray-900 bg-gray-200 dark:bg-gray-700 relative z-10">
                 <AvatarImage src={user?.avatarUrl} alt={user?.name} />
                 <AvatarFallback className="text-3xl">
                   {user?.name?.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 pt-4">
-                <h1 className="text-2xl font-bold flex items-center gap-2">
+                <h1 className="text-2xl font-bold flex items-center gap-2 text-gray-900 dark:text-gray-100">
                   {user?.name}
                   {user?.isEmailVerified && (
                     <Badge variant="secondary" className="ml-2">
@@ -78,33 +97,39 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                     </Badge>
                   )}
                 </h1>
-                <p className="text-lg text-gray-600">@{user?.username}</p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-lg text-gray-600 dark:text-gray-400">
+                  @{user?.username}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   {user?.bio || "No bio provided"}
                 </p>
               </div>
-              <Button variant="outline" className="mt-4 sm:mt-4">
-                <Edit className="w-4 h-4 mr-2" /> Edit Profile
-              </Button>
+              <div className="flex items-center gap-2 mt-4 sm:mt-4">
+                <ThemeToggle />
+                <Button variant="outline">
+                  <Edit className="w-4 h-4 mr-2" /> Edit Profile
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
 
-        {/* Main Content with Tabs for Clear Sections */}
+        {/* Tabs */}
         <Tabs defaultValue="account" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-3 bg-gray-100 dark:bg-gray-800">
             <TabsTrigger value="account">Account</TabsTrigger>
             <TabsTrigger value="plan">Plan</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
+          {/* Account Info */}
           <TabsContent value="account">
-            <Card>
+            <Card className="bg-white dark:bg-gray-900">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                   <User className="w-5 h-5" /> Account Information
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="text-gray-600 dark:text-gray-400">
                   View and manage your personal details
                 </CardDescription>
               </CardHeader>
@@ -112,49 +137,49 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                 <ScrollArea className="pr-4">
                   <div className="space-y-6">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
                         <User className="h-5 w-5 text-blue-600" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Full Name
                         </label>
-                        <p className="mt-1 text-sm text-gray-900">
+                        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                           {user?.name}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900">
                         <AtSign className="h-5 w-5 text-indigo-600" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Username
                         </label>
-                        <p className="mt-1 text-sm text-gray-900">
+                        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                           @{user?.username}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
                         <Mail className="h-5 w-5 text-green-600" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Email
                         </label>
-                        <p className="mt-1 text-sm text-gray-900">
+                        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                           {user?.email}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900">
                         {user?.isEmailVerified ? (
                           <CheckCircle2 className="h-5 w-5 text-green-600" />
                         ) : (
@@ -162,7 +187,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                         )}
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Email Verification
                         </label>
                         <Badge
@@ -177,14 +202,14 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900">
                         <Info className="h-5 w-5 text-purple-600" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Account Type
                         </label>
-                        <p className="mt-1 text-sm text-gray-900">
+                        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                           {user?.type}
                         </p>
                       </div>
@@ -195,39 +220,40 @@ export default function ProfileClient({ user }: ProfileClientProps) {
             </Card>
           </TabsContent>
 
+          {/* Plan Info */}
           <TabsContent value="plan">
             {user?.planDetails ? (
-              <Card>
+              <Card className="bg-white dark:bg-gray-900">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                     <Calendar className="w-5 h-5" /> Plan Information
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-gray-600 dark:text-gray-400">
                     Your current subscription details
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900">
                         <Package className="h-5 w-5 text-blue-600" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Plan Name
                         </label>
-                        <p className="mt-1 text-sm text-gray-900">
+                        <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                           {user?.planDetails?.planName || "No plan"}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Status
                         </label>
                         <Badge
@@ -245,14 +271,14 @@ export default function ProfileClient({ user }: ProfileClientProps) {
 
                     {user?.planDetails?.expiresAt && (
                       <div className="flex items-center gap-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900">
                           <Calendar className="h-5 w-5 text-orange-600" />
                         </div>
                         <div className="flex-1">
-                          <label className="block text-sm font-medium text-gray-700">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                             Expires On
                           </label>
-                          <p className="mt-1 text-sm text-gray-900">
+                          <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                             {new Date(
                               user.planDetails.expiresAt
                             ).toLocaleDateString()}
@@ -267,9 +293,9 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                 </CardFooter>
               </Card>
             ) : (
-              <Card>
+              <Card className="bg-white dark:bg-gray-900">
                 <CardContent className="py-10 text-center">
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     No active plan. Upgrade to access premium features.
                   </p>
                   <Button className="mt-4">Upgrade Plan</Button>
@@ -278,15 +304,15 @@ export default function ProfileClient({ user }: ProfileClientProps) {
             )}
           </TabsContent>
 
+          {/* Settings */}
           <TabsContent value="settings">
             <div className="space-y-6">
-              {/* Account Settings */}
-              <Card>
+              <Card className="bg-white dark:bg-gray-900">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
                     <Settings className="w-5 h-5" /> Account Settings
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-gray-600 dark:text-gray-400">
                     Manage your preferences and actions
                   </CardDescription>
                 </CardHeader>
@@ -322,15 +348,13 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                 </CardFooter>
               </Card>
 
-              {/* Restricted Actions for Unverified Users */}
               {!user?.isEmailVerified && (
-                <Card>
+                <Card className="bg-white dark:bg-gray-900">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-yellow-600" />{" "}
-                      Restricted Actions
+                    <CardTitle className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+                      <AlertCircle className="w-5 h-5" /> Restricted Actions
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-gray-600 dark:text-gray-400">
                       The following actions require email verification
                     </CardDescription>
                   </CardHeader>
@@ -339,10 +363,10 @@ export default function ProfileClient({ user }: ProfileClientProps) {
                       {getBlockedActions(user).map((action) => (
                         <div
                           key={action}
-                          className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg"
+                          className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                         >
                           <Lock className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600 capitalize">
+                          <span className="text-sm text-gray-600 dark:text-gray-400 capitalize">
                             {action.replace("_", " ")}
                           </span>
                         </div>

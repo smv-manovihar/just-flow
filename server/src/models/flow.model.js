@@ -21,7 +21,7 @@ const FlowSchema = new Schema(
 			enum: ['public', 'private', 'shared', 'paid'],
 			default: 'public',
 		},
-		startNode: { type: Schema.Types.ObjectId, ref: 'Nodes', required: false },
+		headNode: { type: Schema.Types.ObjectId, ref: 'Nodes', required: false },
 		nodes: [{ type: Schema.Types.ObjectId, ref: 'Nodes' }],
 		sharedWith: [
 			{
