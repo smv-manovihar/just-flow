@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/authContext";
 import {
   Card,
@@ -25,6 +25,37 @@ export default function LoginPage() {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
+  const searchParams = useSearchParams();
+
+  // Handle errors from query params after Google callback
+  useEffect(() => {
+    const err = searchParams.get("error");
+    if (err) {
+      switch (err) {
+        case "email_exists":
+          setError(
+            "An account with this email already exists. Please sign in with your password."
+          );
+          break;
+        case "provider_mismatch":
+          setError("Provider mismatch. Please contact support.");
+          break;
+        case "no_code":
+          setError("No authorization code received from Google.");
+          break;
+        case "server_error":
+          setError(
+            "An error occurred during Google authentication. Please try again."
+          );
+          break;
+        case "google_auth_failed":
+          setError("Failed to initiate Google authentication.");
+          break;
+        default:
+          setError("An unknown error occurred during Google sign-in.");
+      }
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +90,14 @@ export default function LoginPage() {
     setShowVerificationModal(false);
     router.push(routes.PROFILE);
   };
-  const handleGoogleLogin = async () => {};
+
+  const handleGoogleLogin = () => {
+    setIsLoading(true);
+    setError("");
+    // Redirect to backend Google auth endpoint on port 5000
+    window.location.href = "http://localhost:5000/api/auth/google";
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -108,11 +146,12 @@ export default function LoginPage() {
             </Button>
             <Button
               type="button"
-              variant={"outline"}
+              variant="outline"
               className="w-full mt-0.5"
               onClick={handleGoogleLogin}
+              disabled={isLoading}
             >
-              <FcGoogle />
+              <FcGoogle className="mr-2" />
               Continue with Google
             </Button>
           </form>

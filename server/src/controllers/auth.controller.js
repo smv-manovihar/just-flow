@@ -3,6 +3,7 @@ import User from '../models/user.model.js';
 import RefreshToken from '../models/refreshToken.model.js';
 import { hash, compare } from 'bcrypt';
 import {
+	FRONTEND_URL,
 	JWT_SECRET,
 	OTP_EXPIRY_MINUTES,
 	VERIFICATION_TOKEN_EXPIRY_HOURS,
@@ -20,17 +21,151 @@ import {
 	sendEmailVerification,
 } from '../utils/email.utils.js';
 
+import { OAuth2Client } from 'google-auth-library';
+
 const publicUser = (u) => ({
 	id: u._id,
 	email: u.email,
 	username: u.username,
 	name: u.name,
 	bio: u.bio,
+	hasPassword: u.password ? true : false,
 	type: u.type,
 	planDetails: u.planDetails,
 	lastActivity: u.lastActivity,
 	isEmailVerified: u.isEmailVerified,
+	avatar: u.avatar,
 });
+
+import fetch from 'node-fetch';
+export const googleAuth = async (req, res) => {
+	try {
+		const oauth2Client = new OAuth2Client(
+			process.env.GOOGLE_CLIENT_ID,
+			process.env.GOOGLE_CLIENT_SECRET,
+			process.env.GOOGLE_CALLBACK_URL,
+		);
+
+		const scopes = [
+			'https://www.googleapis.com/auth/userinfo.profile',
+			'https://www.googleapis.com/auth/userinfo.email',
+		];
+
+		const url = oauth2Client.generateAuthUrl({
+			access_type: 'offline',
+			scope: scopes,
+			prompt: 'consent',
+		});
+
+		res.redirect(url);
+	} catch (err) {
+		console.error('Google auth error:', err);
+		res.redirect(`${FRONTEND_URL}/auth/login?error=google_auth_failed`);
+	}
+};
+
+export const googleCallback = async (req, res) => {
+	const { code } = req.query;
+
+	if (!code) {
+		return res.redirect(`${FRONTEND_URL}/auth/login?error=no_code`);
+	}
+
+	try {
+		const oauth2Client = new OAuth2Client(
+			process.env.GOOGLE_CLIENT_ID,
+			process.env.GOOGLE_CLIENT_SECRET,
+			process.env.GOOGLE_CALLBACK_URL,
+		);
+
+		const { tokens } = await oauth2Client.getToken({ code });
+
+		const userInfoRes = await fetch(
+			'https://www.googleapis.com/oauth2/v3/userinfo',
+			{
+				headers: { Authorization: `Bearer ${tokens.access_token}` },
+			},
+		);
+
+		if (!userInfoRes.ok) {
+			throw new Error('Failed to fetch user info');
+		}
+
+		const userInfo = await userInfoRes.json();
+
+		if (!userInfo.email) {
+			throw new Error('No email provided by Google');
+		}
+
+		let user = await User.findOne({ email: userInfo.email.toLowerCase() });
+
+		// Function to get high-resolution avatar URL
+		const getHighResAvatar = (url) => {
+			if (!url) return null;
+			return url.replace(/=s\d+(-c)?$/, '=s512-c');
+		};
+
+		if (user) {
+			if (user.provider !== 'google' || user.providerId !== userInfo.sub) {
+				return res.redirect(
+					`${
+						FRONTEND_URL || 'http://localhost:3000'
+					}/auth/register?error=provider_mismatch`,
+				);
+			}
+			if (
+				userInfo.picture &&
+				user.avatar !== getHighResAvatar(userInfo.picture)
+			)
+				user.avatar = getHighResAvatar(userInfo.picture);
+			if (userInfo.name && user.name !== userInfo.name)
+				user.name = userInfo.name;
+			await user.save();
+		} else {
+			const baseUsername = userInfo.email.split('@')[0] || 'user';
+			const username = await generateUniqueUsername(baseUsername);
+
+			user = new User({
+				email: userInfo.email.toLowerCase(),
+				username,
+				name: userInfo.name || username,
+				bio: null,
+				type: 'Free',
+				planDetails: {},
+				provider: 'google',
+				providerId: userInfo.sub,
+				avatar: getHighResAvatar(userInfo.picture), // Store high-res profile pic link
+				isEmailVerified: userInfo.email_verified === true,
+				isActive: true,
+			});
+
+			await user.save(); // Save only after successful creation
+		}
+
+		const { accessToken, refreshToken, expiresAt } =
+			await generateAccessAndRefreshTokens(user._id, req);
+		attachTokens(accessToken, refreshToken, res);
+		res.redirect(`${FRONTEND_URL || 'http://localhost:3000'}/user/profile`);
+	} catch (err) {
+		console.error('Google callback error:', err);
+		// Redirect with error if user creation fails
+		res.redirect(
+			`${
+				FRONTEND_URL || 'http://localhost:3000'
+			}/auth/login?error=server_error`,
+		);
+	}
+};
+
+async function generateUniqueUsername(base) {
+	let username = base.toLowerCase().replace(/[^a-z0-9]/g, '');
+	let counter = 1;
+	while (await User.findOne({ username })) {
+		username = `${base}${counter}`;
+		counter++;
+	}
+	return username;
+}
 
 export const loginUser = async (req, res) => {
 	const { email, password } = req.body;

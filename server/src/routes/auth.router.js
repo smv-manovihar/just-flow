@@ -13,6 +13,8 @@ import {
 	verifyEmailWithToken,
 	resendVerificationEmail,
 	checkEmailVerificationStatus,
+	googleAuth,
+	googleCallback,
 } from '../controllers/auth.controller.js';
 import { authenticateJWT } from '../middlewares/auth.middleware.js';
 import { trackUserActivity } from '../middlewares/activity.middleware.js';
@@ -23,6 +25,9 @@ const router = Router();
 router.post('/login', loginUser);
 router.post('/register', registerUser);
 router.post('/refresh', refreshAccessToken);
+
+router.get('/google', googleAuth);
+router.get('/google/callback', googleCallback);
 
 // Email verification routes (public)
 router.post('/verify-email/otp', verifyEmailWithOTP);

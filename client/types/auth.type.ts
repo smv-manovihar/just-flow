@@ -22,7 +22,8 @@ export type User = {
   type: string;
   provider: string | null;
   providerId: string | null;
-  avatarUrl: string | undefined;
+  avatar: string | undefined;
+  hasPassword: boolean;
   planDetails: TPlanDetails;
   isEmailVerified: boolean;
   lastActivity: string;

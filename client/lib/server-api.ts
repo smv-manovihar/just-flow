@@ -11,7 +11,7 @@ export interface ServerUser {
   type: string;
   provider: string | null;
   providerId: string | null;
-  avatarUrl: string | undefined;
+  avatar: string | undefined;
   planDetails: {
     planId: string;
     planName: string;

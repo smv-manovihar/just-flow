@@ -65,7 +65,7 @@ export default function ProfileClient({ user }: ProfileClientProps) {
           <div className="px-6 pt-0 pb-6 bg-white">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <Avatar className="w-24 h-24 ring-4 ring-white bg-gray-200 relative z-10">
-                <AvatarImage src={user?.avatarUrl} alt={user?.name} />
+                <AvatarImage src={user?.avatar} alt={user?.name} />
                 <AvatarFallback className="text-3xl">
                   {user?.name?.charAt(0).toUpperCase()}
                 </AvatarFallback>

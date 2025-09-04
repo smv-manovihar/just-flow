@@ -8,7 +8,7 @@ const userSchema = new Schema(
 			lowercase: true,
 			trim: true,
 		},
-		password: { type: String },
+		password: { type: String, default: null },
 		username: {
 			type: String,
 			required: true,
@@ -44,6 +44,11 @@ const userSchema = new Schema(
 		resetPasswordOtpExpiresAt: { type: Date, default: null },
 	},
 	{ timestamps: true },
+);
+
+userSchema.index(
+	{ provider: 1, providerId: 1 },
+	{ unique: true, sparse: true },
 );
 
 export default model('User', userSchema, 'Users');

@@ -148,3 +148,17 @@ export const checkEmailVerificationStatus = async (email: string): Promise<ApiRe
     return handleApiError(error as AxiosError);
   }
 };
+
+export const deleteAccount = async (id:string): Promise<ApiResponse<void>> => {
+  try {
+    const response = await api.delete(`/api/auth/${id}`, {
+      withCredentials: true,
+    });
+    return {
+      success: true,
+      message: response.data.message,
+    };
+  } catch (error) {
+    return handleApiError(error as AxiosError);
+  }
+};

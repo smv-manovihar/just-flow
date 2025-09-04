@@ -24,3 +24,7 @@ export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 export const OTP_EXPIRY_MINUTES = 10; // OTP expires in 10 minutes
 export const VERIFICATION_TOKEN_EXPIRY_HOURS = 24; // Verification token expires in 24 hours
 export const PASSWORD_RESET_TOKEN_EXPIRY_HOURS = 1; // Password reset token expires in 1 hour
+
+export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+export const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL;

@@ -98,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!response.success) {
         throw new Error(response.message || "Logout failed");
       }
-      
+
       setUser(null);
       setIsAuthenticated(false);
     } catch (error) {
