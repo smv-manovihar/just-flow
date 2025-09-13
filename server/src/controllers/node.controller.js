@@ -64,12 +64,6 @@ export const addNodeToFlow = async (req, res) => {
 			{ session },
 		);
 
-		await Flow.updateOne(
-			{ _id: flowId },
-			{ $push: { nodes: newNodeId } },
-			{ session },
-		);
-
 		await session.commitTransaction();
 		session.endSession();
 
@@ -120,13 +114,6 @@ export const deleteNode = async (req, res) => {
 
 		// Delete the node
 		await Node.deleteOne({ _id: nodeId }, { session });
-
-		// Remove the node from the flow's nodes array
-		await Flow.updateOne(
-			{ _id: flowId },
-			{ $pull: { nodes: nodeId } },
-			{ session },
-		);
 
 		// Clean up orphaned nodes
 		const allNodes = await Node.find({ flowId }).session(session);
@@ -288,12 +275,6 @@ export const updateNodeConnections = async (req, res) => {
 			flow.headNode,
 			session,
 		);
-
-		// Update flow's nodes array
-		const remainingNodes = await Node.find({ flowId })
-			.select('_id')
-			.session(session);
-		await flow.save({ session });
 
 		await session.commitTransaction();
 		session.endSession();

@@ -23,6 +23,13 @@ export const createFlow = async (req, res) => {
 	const userId = req.userId;
 	let session;
 
+	// Add this validation
+	if (!headNode || typeof headNode !== 'object') {
+		return res
+			.status(400)
+			.json({ message: 'headNode is required and must be an object' });
+	}
+
 	try {
 		session = await mongoose.startSession();
 		session.startTransaction();
@@ -36,7 +43,6 @@ export const createFlow = async (req, res) => {
 					userId,
 					visibility: visibility || 'public',
 					price: price || 0,
-					nodes: [],
 					sharedWith: sharedWith || [],
 					isSharedEditable: isSharedEditable || false,
 					isCommitted: isCommitted || false,
@@ -72,11 +78,10 @@ export const createFlow = async (req, res) => {
 				{ session },
 			);
 			tempIdToMongoId[node.id] = newNode[0]._id;
-			flow[0].nodes.push(newNode[0]._id);
 		}
 
 		flow[0].headNode = tempIdToMongoId[headNodeWithId.id];
-		flow[0].origin.flowId = flow[0]._id; // Set origin flowId
+		flow[0].origin.flowId = flow[0]._id;
 
 		for (const node of allNodes) {
 			const mongoId = tempIdToMongoId[node.id];
@@ -116,11 +121,12 @@ export const createFlow = async (req, res) => {
 export const getFlowWithNodes = async (req, res) => {
 	const { flowId } = req.params;
 	try {
-		const flow = await Flow.findById(flowId).populate('nodes'); // Optimized with populate
+		const flow = await Flow.findById(flowId).populate('headNode');
 		if (!flow) {
 			return res.status(404).json({ message: 'Flow not found' });
 		}
-		res.json({ message: 'Flow found', flow });
+		const nodes = await Node.find({ flowId });
+		res.json({ message: 'Flow found', flow, nodes });
 	} catch (err) {
 		res.status(500).json({ message: 'Server error', error: err.message });
 	}
@@ -165,15 +171,17 @@ export const deleteFlow = async (req, res) => {
 export const getFlow = async (req, res) => {
 	const { flowId } = req.params;
 	try {
-		const flow = await Flow.findById(flowId).populate('headNode'); // Optimized with populate
+		const flow = await Flow.findById(flowId).populate('headNode');
 		if (!flow) {
 			return res.status(404).json({ message: 'Flow not found' });
 		}
 		const likes = await Like.find({ flowId });
 		const comments = await Comment.find({ flowId });
+		const nodes = await Node.find({ flowId });
 		res.json({
 			message: 'Flow found',
 			flow,
+			nodes,
 			numLikes: likes.length,
 			numComments: comments.length,
 		});
@@ -214,7 +222,11 @@ export const updateFlow = async (req, res) => {
 
 		const tempIdToMongoId = {};
 		const existingNodeIds = new Set();
-		const nodesToDelete = new Set(flow.nodes.map((id) => id.toString()));
+		const nodesToDelete = new Set();
+
+		// Find all existing nodes for this flow
+		const existingNodes = await Node.find({ flowId }).session(session);
+		existingNodes.forEach((n) => nodesToDelete.add(n._id.toString()));
 
 		for (const node of nodes) {
 			if (node.id && mongoose.Types.ObjectId.isValid(node.id)) {
@@ -295,20 +307,23 @@ export const updateFlow = async (req, res) => {
 		flow.price = price;
 		flow.isCommitted = isCommitted;
 		flow.isDraft = isDraft;
-		flow.nodes = Array.from(existingNodeIds).map((id) =>
-			mongoose.Types.ObjectId(id),
-		);
 
 		const headNodeId =
 			headNode && mongoose.Types.ObjectId.isValid(headNode)
 				? headNode
 				: tempIdToMongoId[headNode];
-		if (headNodeId && !flow.nodes.includes(headNodeId)) {
-			await session.abortTransaction();
-			session.endSession();
-			return res
-				.status(400)
-				.json({ message: "headNode must be part of the flow's nodes" });
+		if (headNodeId) {
+			const nodeExists = await Node.findOne({
+				_id: headNodeId,
+				flowId,
+			}).session(session);
+			if (!nodeExists) {
+				await session.abortTransaction();
+				session.endSession();
+				return res
+					.status(400)
+					.json({ message: "headNode must be part of the flow's nodes" });
+			}
 		}
 		flow.headNode = headNodeId;
 

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FcGoogle } from "react-icons/fc";
-import EmailVerificationModal from "@/components/EmailVerificationModal";
+import EmailVerificationModal from "@/components/email-verification/EmailVerificationModal";
 import Link from "next/link";
 import routes from "@/lib/routes";
 
@@ -95,7 +95,9 @@ export default function LoginPage() {
     setIsLoading(true);
     setError("");
     // Redirect to backend Google auth endpoint on port 5000
-    window.location.href = "http://localhost:5000/api/auth/google";
+    window.location.href = `${
+      process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"
+    }/api/auth/google`;
   };
 
   return (

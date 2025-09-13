@@ -32,8 +32,8 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
-import EmailVerificationBanner from "@/components/EmailVerificationBanner";
-import VerificationGuard from "@/components/VerificationGuard";
+import EmailVerificationBanner from "@/components/email-verification/EmailVerificationBanner";
+import VerificationGuard from "@/components/email-verification/VerificationGuard";
 import { getBlockedActions } from "@/lib/verificationGuard";
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -158,11 +158,6 @@ export default function ProfilePage() {
 
               <div className="flex items-center gap-2 mt-2 md:mt-0">
                 <ThemeToggle />
-                <VerificationGuard action="update_profile">
-                  <Button variant="outline" size="sm" className="shrink-0">
-                    <Edit className="w-4 h-4 mr-2" /> Edit Profile
-                  </Button>
-                </VerificationGuard>
               </div>
             </div>
           </div>

@@ -6,6 +6,5 @@ export type ApiResponse<T> = {
 
 export type ErrorResponse = {
   success: false;
-  status: number;
   message: string;
 }

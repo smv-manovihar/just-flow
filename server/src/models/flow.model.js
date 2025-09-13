@@ -22,7 +22,6 @@ const FlowSchema = new Schema(
 			default: 'public',
 		},
 		headNode: { type: Schema.Types.ObjectId, ref: 'Nodes', required: false },
-		nodes: [{ type: Schema.Types.ObjectId, ref: 'Nodes' }],
 		sharedWith: [
 			{
 				userId: { type: Schema.Types.ObjectId, ref: 'Users' },

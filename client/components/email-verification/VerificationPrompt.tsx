@@ -14,11 +14,11 @@ interface VerificationPromptProps {
   showResend?: boolean;
 }
 
-export default function VerificationPrompt({ 
-  action, 
-  onVerify, 
-  onCancel, 
-  showResend = true 
+export default function VerificationPrompt({
+  action,
+  onVerify,
+  onCancel,
+  showResend = true,
 }: VerificationPromptProps) {
   const { user } = useAuth();
   const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -75,9 +75,10 @@ export default function VerificationPrompt({
               Email Verification Required
             </h3>
             <p className="text-sm text-yellow-700 mt-1">
-              To {action}, please verify your email address ({user.email}) first.
+              To {action}, please verify your email address ({user.email})
+              first.
             </p>
-            
+
             <div className="flex items-center gap-2 mt-3">
               <Button
                 variant="outline"
@@ -88,7 +89,7 @@ export default function VerificationPrompt({
                 <Mail className="w-4 h-4 mr-2" />
                 Verify Now
               </Button>
-              
+
               {showResend && (
                 <Button
                   variant="ghost"
@@ -104,7 +105,7 @@ export default function VerificationPrompt({
                   )}
                 </Button>
               )}
-              
+
               {onCancel && (
                 <Button
                   variant="ghost"
@@ -116,7 +117,7 @@ export default function VerificationPrompt({
                 </Button>
               )}
             </div>
-            
+
             {resendSuccess && (
               <div className="flex items-center gap-2 mt-2 text-sm text-green-600">
                 <CheckCircle className="w-4 h-4" />

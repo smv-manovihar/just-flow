@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { register as registerApi } from "@/api/auth.api";
-import EmailVerificationModal from "@/components/EmailVerificationModal";
+import EmailVerificationModal from "@/components/email-verification/EmailVerificationModal";
 import { Mail, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import routes from "@/lib/routes";

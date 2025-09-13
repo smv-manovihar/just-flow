@@ -30,8 +30,8 @@ import {
   AtSign,
   Lock,
 } from "lucide-react";
-import EmailVerificationBanner from "@/components/EmailVerificationBanner";
-import VerificationGuard from "@/components/VerificationGuard";
+import EmailVerificationBanner from "@/components/email-verification/EmailVerificationBanner";
+import VerificationGuard from "@/components/email-verification/VerificationGuard";
 import { getBlockedActions } from "@/lib/verificationGuard";
 import { ServerUser } from "@/lib/server-api";
 import routes from "@/lib/routes";

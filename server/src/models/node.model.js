@@ -14,7 +14,7 @@ const NodesSchema = new Schema(
 			required: true,
 			index: true,
 		},
-		title: { type: String },
+		name: { type: String },
 		content: { type: String },
 		tags: [{ type: String }],
 		systemTags: [{ type: String }],
